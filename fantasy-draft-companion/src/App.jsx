@@ -485,8 +485,8 @@ export default function App() {
     const d = DEF[p.team]; const s = SOS[p.team];
     const isRec = recs.some(r=>r.id===p.id);
     return (
-      <div onClick={()=>setSelected(p)} style={{display:"grid",gridTemplateColumns:"24px 28px 160px 38px 38px 68px 80px 52px 38px 70px",gap:4,alignItems:"center",padding:"3.5px 8px",borderRadius:6,background:selected?.id===p.id?"var(--bg-row-sel)":isRec?"var(--bg-row-rec)":"var(--bg-row)",border:`1px solid ${selected?.id===p.id?"var(--border-accent)":isRec?"#1a3a1a":"var(--border)"}`,cursor:"pointer",fontSize:10,marginBottom:1.5,transition:"background 0.1s"}}>
-        <span style={{color:"var(--text-muted)",textAlign:"right"}}>{p.rank}</span>
+      <div onClick={()=>setSelected(p)} style={{display:"grid",gridTemplateColumns:"24px 28px 160px 38px 38px 68px 80px 52px 38px 70px",gap:4,alignItems:"center",padding:"3.5px 8px",borderRadius:6,background:selected?.id===p.id?"var(--bg-row-sel)":isRec?"var(--bg-row-rec)":"var(--bg-row)",border:`1px solid ${selected?.id===p.id?"var(--border-accent)":isRec?"#1a3a1a":"var(--border)"}`,borderLeft:`3px solid ${POS_COLORS[p.pos]||"#555"}`,cursor:"pointer",fontSize:10,marginBottom:1.5,transition:"background 0.1s"}}>
+        <span style={{color:"var(--text-secondary)",fontWeight:600,textAlign:"right"}}>{p.rank}</span>
         <span style={{fontSize:9,fontWeight:800,padding:"2px 5px",borderRadius:4,background:POS_COLORS[p.pos]||"#555",color:"#fff",textAlign:"center",letterSpacing:"0.04em",border:"1px solid rgba(255,255,255,0.3)"}}>{p.pos}</span>
         <span style={{fontWeight:500}}>
           {p.name}
@@ -500,7 +500,7 @@ export default function App() {
         <span style={{fontSize:8,fontWeight:500,color:safetyColor(p.safety)}}>{p.safety}</span>
         <div style={{display:"flex",gap:3}}>
           <button onClick={e=>{e.stopPropagation();markDrafted(p,true);}} style={{fontSize:8,padding:"2px 5px",borderRadius:"var(--radius)",border:"0.5px solid var(--border-accent)",background:"var(--bg-accent)",color:"var(--text-accent)",cursor:"pointer"}}>Mine</button>
-          <button onClick={e=>{e.stopPropagation();markDrafted(p,false);}} style={{fontSize:8,padding:"2px 5px",borderRadius:"var(--radius)",border:"0.5px solid var(--border)",background:"transparent",color:"var(--text-muted)",cursor:"pointer"}}>Gone</button>
+          <button onClick={e=>{e.stopPropagation();markDrafted(p,false);}} style={{fontSize:8,padding:"2px 5px",borderRadius:"var(--radius)",border:"1px solid var(--border)",background:"transparent",color:"var(--text-secondary)",cursor:"pointer"}}>Gone</button>
         </div>
       </div>
     );
@@ -588,7 +588,7 @@ export default function App() {
                 const color=count===0?"#9b1c1c":count<=2?"#c27803":count<=5?"#1a56db":"#0e9f6e";
                 return (
                   <div key={tier} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"2px 0",borderBottom:"0.5px solid var(--border)"}}>
-                    <span style={{fontSize:8,color:"var(--text-muted)"}}>T{tier}</span>
+                    <span style={{fontSize:10,color:"var(--text-muted)"}}>T{tier}</span>
                     <span style={{fontSize:10,fontWeight:500,color}}>{count}</span>
                   </div>
                 );
@@ -682,7 +682,7 @@ export default function App() {
                     const label=(TIER_LABELS[pos]||TIER_LABELS.WR)[Number(tier)];
                     return (
                       <div key={key} style={{marginBottom:6}}>
-                        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3}}>
+                        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3,paddingRight:8}}>
                           <span style={{fontSize:10,fontWeight:800,color,textTransform:"uppercase",letterSpacing:"0.08em",padding:"2px 7px",borderRadius:4,background:`${color}38`,border:`1px solid ${color}88`}}>{pos} T{tier} — {label}</span>
                           <div style={{flex:1,height:"0.5px",background:color,opacity:0.25}}></div>
                           <span style={{fontSize:9,fontWeight:600,color,padding:"0px 5px",borderRadius:3,background:`${color}22`}}>{ps.length} left</span>
