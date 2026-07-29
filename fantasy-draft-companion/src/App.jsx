@@ -221,6 +221,10 @@ function olineGrade(team, pos) {
 function olineColor(l) { return l==="Elite"?"#0e9f6e":l==="Strong"?"#1a56db":l==="Average"?"#c27803":l==="Below Avg"?"#e05a3a":"#9b1c1c"; }
 function defColor(l) { return (l==="Elite"||l==="Strong")?"#9b1c1c":l==="Average"?"#c27803":"#0e9f6e"; }
 function sosColor(g) { return (g==="A"||g==="A-"||g==="A+")?"#0e9f6e":(g==="B+"||g==="B")?"#1a56db":g==="B-"?"#c27803":"#9b1c1c"; }
+// Brighter, more saturated variants of the above for small colored text on dark rows (badges keep the dimmer fills above since they sit on solid backgrounds with white text)
+function olineTextColor(l) { return l==="Elite"?"#34d399":l==="Strong"?"#60a5fa":l==="Average"?"#fbbf24":l==="Below Avg"?"#fb923c":"#f87171"; }
+function defTextColor(l) { return (l==="Elite"||l==="Strong")?"#f87171":l==="Average"?"#fbbf24":"#34d399"; }
+function sosTextColor(g) { return (g==="A"||g==="A-"||g==="A+")?"#34d399":(g==="B+"||g==="B")?"#60a5fa":g==="B-"?"#fbbf24":"#f87171"; }
 function riskColor(r) { return r==="Low"?"#0e9f6e":r==="Slight"?"#1a56db":r==="Medium"?"#c27803":"#9b1c1c"; }
 function safetyColor(s) { return (s==="Very Safe"||s==="Safe")?"#0e9f6e":s==="Solid"?"#1a56db":s==="Okay"?"#c27803":"#9b1c1c"; }
 function rewardColor(r) { return r==="High"?"#0e9f6e":r==="Solid"?"#1a56db":"#c27803"; }
@@ -494,9 +498,9 @@ export default function App() {
         </span>
         <span style={{color:"var(--text-secondary)",fontSize:9}}>{p.team}</span>
         <span style={{color:"var(--text-secondary)",fontSize:8}}>Bye {p.bye}</span>
-        {ol?<span style={{fontSize:8,color:olineColor(ol.label)}}>Line: {ol.label}</span>:<span/>}
-        {d?<span style={{fontSize:8,color:defColor(d.label)}}>Def #{d.rank} {d.label}</span>:<span/>}
-        {s?<span style={{fontSize:8,color:sosColor(s.e)}}>SOS {s.e}</span>:<span/>}
+        {ol?<span style={{fontSize:8,color:olineTextColor(ol.label)}}>Line: {ol.label}</span>:<span/>}
+        {d?<span style={{fontSize:8,color:defTextColor(d.label)}}>Def #{d.rank} {d.label}</span>:<span/>}
+        {s?<span style={{fontSize:8,color:sosTextColor(s.e)}}>SOS {s.e}</span>:<span/>}
         <span style={{fontSize:8,fontWeight:500,color:safetyColor(p.safety),whiteSpace:"nowrap"}}>{p.safety}</span>
         <div style={{display:"flex",gap:3}}>
           <button onClick={e=>{e.stopPropagation();markDrafted(p,true);}} style={{fontSize:8,fontWeight:700,padding:"2px 6px",borderRadius:"var(--radius)",border:"1px solid var(--text-success)",background:"var(--bg-success)",color:"var(--text-success)",cursor:"pointer"}}>Mine</button>
@@ -712,7 +716,7 @@ export default function App() {
                       <span style={{fontSize:8,padding:"1px 4px",borderRadius:3,background:TIER_COLORS[p.tier],color:"#fff"}}>T{p.tier}</span>
                       <span style={{fontSize:9,color:safetyColor(p.safety)}}>{p.safety}</span>
                       <span style={{fontSize:9,color:"var(--text-muted)"}}>Bye {p.bye}</span>
-                      {SOS[p.team]&&<span style={{fontSize:8,color:sosColor(SOS[p.team].e)}}>SOS {SOS[p.team].e}</span>}
+                      {SOS[p.team]&&<span style={{fontSize:8,color:sosTextColor(SOS[p.team].e)}}>SOS {SOS[p.team].e}</span>}
                     </>:<span style={{fontSize:10,color:"var(--text-muted)",fontStyle:"italic"}}>Empty</span>}
                   </div>
                 );
@@ -858,8 +862,8 @@ export default function App() {
                 <div style={{background:"var(--bg-row)",borderRadius:6,padding:"9px 11px",marginBottom:8,border:`1px solid var(--border)`}}>
                   <div style={{fontSize:8,fontWeight:600,color:"var(--text-secondary)",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>O-line ({selected.pos==="RB"?"run":"pass"} block)</div>
                   <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
-                    <span style={{fontSize:14,fontWeight:500,color:olineColor(ol.label)}}>{ol.score}</span>
-                    <span style={{fontSize:9,color:olineColor(ol.label)}}>{ol.label}</span>
+                    <span style={{fontSize:14,fontWeight:500,color:olineTextColor(ol.label)}}>{ol.score}</span>
+                    <span style={{fontSize:9,color:olineTextColor(ol.label)}}>{ol.label}</span>
                   </div>
                   <div style={{height:4,borderRadius:3,background:"var(--border)",overflow:"hidden"}}>
                     <div style={{width:`${ol.score}%`,height:"100%",background:olineColor(ol.label),borderRadius:3}}></div>
@@ -889,8 +893,8 @@ export default function App() {
                 <div style={{background:"var(--surface-1)",borderRadius:"var(--radius)",padding:"8px 10px",marginBottom:10}}>
                   <div style={{fontSize:8,fontWeight:600,color:"var(--text-secondary)",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.05em"}}>Schedule</div>
                   <div style={{display:"flex",justifyContent:"space-between"}}>
-                    <div><div style={{fontSize:8,color:"var(--text-muted)"}}>Wk 1-6</div><div style={{fontSize:14,fontWeight:500,color:sosColor(s.e)}}>{s.e}</div></div>
-                    <div style={{textAlign:"right"}}><div style={{fontSize:8,color:"var(--text-muted)"}}>Full season</div><div style={{fontSize:14,fontWeight:500,color:sosColor(s.f)}}>{s.f}</div></div>
+                    <div><div style={{fontSize:8,color:"var(--text-muted)"}}>Wk 1-6</div><div style={{fontSize:14,fontWeight:500,color:sosTextColor(s.e)}}>{s.e}</div></div>
+                    <div style={{textAlign:"right"}}><div style={{fontSize:8,color:"var(--text-muted)"}}>Full season</div><div style={{fontSize:14,fontWeight:500,color:sosTextColor(s.f)}}>{s.f}</div></div>
                   </div>
                 </div>
               );
