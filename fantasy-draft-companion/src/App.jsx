@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 
 const SERVER = "https://fantasy-draft-server-production.up.railway.app";
 
@@ -318,6 +318,11 @@ export default function App() {
   const [recentPicks, setRecentPicks] = useState([]);
   const [xHandles, setXHandles] = useState(null);
   const [theme, setTheme] = useState("dark");
+  const sidebarRef = useRef(null);
+
+  useEffect(() => {
+    if (sidebarRef.current) sidebarRef.current.scrollTop = 0;
+  }, []);
 
   useEffect(() => {
     const t = THEMES[theme];
@@ -564,7 +569,7 @@ export default function App() {
       <div style={{display:"flex",height:"calc(100vh - 70px)",overflow:"hidden"}}>
 
         {/* LEFT SIDEBAR: Scarcity + Tier counts */}
-        <div style={{width:165,background:"var(--bg-sidebar)",borderRight:`1px solid var(--border)`,padding:10,overflow:"auto",flexShrink:0}}>
+        <div ref={sidebarRef} style={{width:165,background:"var(--bg-sidebar)",borderRight:`1px solid var(--border)`,padding:10,overflow:"auto",flexShrink:0}}>
           <div style={{fontSize:9,fontWeight:500,color:"var(--text-muted)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:8}}>Tier scarcity</div>
 
           {/* Run alert */}
@@ -603,7 +608,7 @@ export default function App() {
 
           {/* Quick position summary */}
           <div style={{marginTop:10,paddingTop:10,borderTop:"0.5px solid var(--border)"}}>
-            <div style={{fontSize:9,fontWeight:500,color:"var(--text-muted)",marginBottom:6}}>My roster</div>
+            <div style={{fontSize:9,fontWeight:600,color:"var(--text-secondary)",marginBottom:6}}>My roster</div>
             {["QB","RB","RB","WR","WR","WR","TE","FLEX","K","DEF"].map((slot,i)=>{
               const filled = roster.filter(p=>{
                 if(slot==="FLEX") return (p.pos==="RB"||p.pos==="WR"||p.pos==="TE")&&roster.filter(r=>r.pos===p.pos).indexOf(p)>=[2,3,1]["RB","WR","TE"].indexOf(p.pos);
@@ -617,8 +622,8 @@ export default function App() {
               const need = pos==="WR"?3:pos==="RB"?2:1;
               return (
                 <div key={pos} style={{display:"flex",justifyContent:"space-between",padding:"2px 0",fontSize:9}}>
-                  <span style={{color:"var(--text-muted)"}}>{pos}</span>
-                  <span style={{color:have>=need?"#0e9f6e":"var(--text-secondary)"}}>{have}/{need}</span>
+                  <span style={{color:"var(--text-secondary)",fontWeight:500}}>{pos}</span>
+                  <span style={{color:have>=need?"#0e9f6e":"var(--text-secondary)",fontWeight:600}}>{have}/{need}</span>
                 </div>
               );
             })}
