@@ -874,28 +874,6 @@ export default function App() {
             </div>
           ))}
 
-          {/* Quick position summary */}
-          <div style={{marginTop:10,paddingTop:10,borderTop:"0.5px solid var(--border)"}}>
-            <div style={{fontSize:9,fontWeight:600,color:"var(--text-secondary)",marginBottom:6}}>My roster</div>
-            {["QB","RB","RB","WR","WR","WR","TE","FLEX","K","DEF"].map((slot,i)=>{
-              const filled = roster.filter(p=>{
-                if(slot==="FLEX") return (p.pos==="RB"||p.pos==="WR"||p.pos==="TE")&&roster.filter(r=>r.pos===p.pos).indexOf(p)>=[2,3,1]["RB","WR","TE"].indexOf(p.pos);
-                return p.pos===slot;
-              });
-              const hasFilled = roster.length > i;
-              return null;
-            })}
-            {["QB","RB","WR","TE","K","DEF"].map(pos=>{
-              const have = roster.filter(p=>p.pos===pos).length;
-              const need = pos==="WR"?3:pos==="RB"?2:1;
-              return (
-                <div key={pos} style={{display:"flex",justifyContent:"space-between",padding:"2px 0",fontSize:9}}>
-                  <span style={{color:"var(--text-secondary)",fontWeight:500}}>{pos}</span>
-                  <span style={{color:have>=need?"#0e9f6e":"var(--text-secondary)",fontWeight:600}}>{have}/{need}</span>
-                </div>
-              );
-            })}
-          </div>
         </div>
 
         {/* MAIN CONTENT */}
@@ -903,26 +881,44 @@ export default function App() {
 
           {activeTab==="board"&&(
             <>
-              {/* Recs bar */}
-              {isMyTurn&&recs.length>0&&(
-                <div style={{marginBottom:8,background:"var(--bg-accent-soft)",border:`1px solid var(--border-accent)`,borderRadius:8,padding:"5px 10px",width:"fit-content",maxWidth:"100%"}}>
-                  <div style={{fontSize:9,fontWeight:500,color:"var(--text-accent)",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>Your pick — top recommendations</div>
-                  <div style={{display:"inline-flex",gap:6,flexWrap:"nowrap"}}>
-                    {recs.map((p,i)=>(
-                      <div key={p.id} onClick={()=>setSelected(p)} style={{background:"var(--bg-card)",borderRadius:6,padding:"4px 8px",cursor:"pointer",border:`1px solid var(--border-accent)`,width:220,flexShrink:0}}>
-                        <div style={{display:"flex",alignItems:"center",gap:4}}>
-                          <span style={{fontSize:8,color:"var(--text-muted)"}}>#{i+1}</span>
-                          <span style={{fontSize:11,fontWeight:500}}>{p.name}</span>
-                          <span style={{fontSize:8,padding:"1px 3px",borderRadius:3,background:TIER_COLORS[p.tier],color:"#fff"}}>{p.pos}</span>
-                          {p.campAdj!==undefined&&p.campAdj!==0&&<span style={{fontSize:8,color:p.campAdj>0?"#0e9f6e":"#e03e3e"}}>{p.campAdj>0?"▲":"▼"}{Math.abs(p.campAdj)}</span>}
-                          <span style={{fontSize:8,color:safetyColor(p.safety),marginLeft:4}}>{p.safety}</span>
+              {/* Recs bar + inline roster panel */}
+              <div style={{marginBottom:8,display:"flex",gap:8,alignItems:"stretch"}}>
+                {isMyTurn&&recs.length>0&&(
+                  <div style={{background:"var(--bg-accent-soft)",border:`1px solid var(--border-accent)`,borderRadius:8,padding:"5px 10px",width:"fit-content",flexShrink:0}}>
+                    <div style={{fontSize:9,fontWeight:500,color:"var(--text-accent)",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>Your pick — top recommendations</div>
+                    <div style={{display:"inline-flex",gap:6,flexWrap:"nowrap"}}>
+                      {recs.map((p,i)=>(
+                        <div key={p.id} onClick={()=>setSelected(p)} style={{background:"var(--bg-card)",borderRadius:6,padding:"4px 8px",cursor:"pointer",border:`1px solid var(--border-accent)`,width:220,flexShrink:0}}>
+                          <div style={{display:"flex",alignItems:"center",gap:4}}>
+                            <span style={{fontSize:8,color:"var(--text-muted)"}}>#{i+1}</span>
+                            <span style={{fontSize:11,fontWeight:500}}>{p.name}</span>
+                            <span style={{fontSize:8,padding:"1px 3px",borderRadius:3,background:TIER_COLORS[p.tier],color:"#fff"}}>{p.pos}</span>
+                            {p.campAdj!==undefined&&p.campAdj!==0&&<span style={{fontSize:8,color:p.campAdj>0?"#0e9f6e":"#e03e3e"}}>{p.campAdj>0?"▲":"▼"}{Math.abs(p.campAdj)}</span>}
+                            <span style={{fontSize:8,color:safetyColor(p.safety),marginLeft:4}}>{p.safety}</span>
+                          </div>
+                          <div style={{fontSize:9,color:"var(--text-secondary)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{getReason(p,roster,round)}</div>
                         </div>
-                        <div style={{fontSize:9,color:"var(--text-secondary)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{getReason(p,roster,round)}</div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* My roster — compact panel filling remaining width */}
+                <div style={{flex:1,minWidth:0,background:"var(--bg-card)",border:`1px solid var(--border)`,borderRadius:8,padding:"5px 10px"}}>
+                  <div style={{fontSize:9,fontWeight:600,color:"var(--text-secondary)",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>My roster</div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(90px,1fr))",gap:"2px 10px"}}>
+                    {ROSTER_SLOTS.map((slot,i)=>{
+                      const p=roster[i];
+                      return (
+                        <div key={i} style={{display:"flex",alignItems:"center",gap:4,fontSize:9,overflow:"hidden",whiteSpace:"nowrap"}}>
+                          <span style={{color:"var(--text-muted)",fontWeight:600,flexShrink:0}}>{slot}</span>
+                          <span style={{overflow:"hidden",textOverflow:"ellipsis",color:p?"var(--text-primary)":"var(--text-muted)",fontStyle:p?"normal":"italic"}}>{p?p.name:"Empty"}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              )}
+              </div>
 
               {/* Filters */}
               <div style={{display:"flex",gap:6,marginBottom:8,alignItems:"center",flexWrap:"wrap"}}>
