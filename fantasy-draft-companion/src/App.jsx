@@ -485,7 +485,7 @@ export default function App() {
     const d = DEF[p.team]; const s = SOS[p.team];
     const isRec = recs.some(r=>r.id===p.id);
     return (
-      <div onClick={()=>setSelected(p)} style={{display:"grid",gridTemplateColumns:"24px 28px 160px 38px 38px 68px 80px 52px 38px 70px",gap:4,alignItems:"center",padding:"3.5px 8px",borderRadius:6,background:selected?.id===p.id?"var(--bg-row-sel)":isRec?"var(--bg-row-rec)":"var(--bg-row)",border:`1px solid ${selected?.id===p.id?"var(--border-accent)":isRec?"#1a3a1a":"var(--border)"}`,borderLeft:`3px solid ${POS_COLORS[p.pos]||"#555"}`,cursor:"pointer",fontSize:10,marginBottom:1.5,transition:"background 0.1s"}}>
+      <div onClick={()=>setSelected(p)} className="player-row" style={{display:"grid",gridTemplateColumns:"24px 28px 160px 38px 38px 68px 80px 52px 48px 70px",gap:4,alignItems:"center",padding:"3.5px 8px",borderRadius:6,background:selected?.id===p.id?"var(--bg-row-sel)":isRec?"var(--bg-row-rec)":"var(--bg-row)",border:`1px solid ${selected?.id===p.id?"var(--border-accent)":isRec?"#1a3a1a":"var(--border)"}`,borderLeft:`3px solid ${POS_COLORS[p.pos]||"#555"}`,cursor:"pointer",fontSize:10,marginBottom:1.5,transition:"background 0.1s, filter 0.1s"}}>
         <span style={{color:"var(--text-secondary)",fontWeight:600,textAlign:"right"}}>{p.rank}</span>
         <span style={{fontSize:9,fontWeight:800,padding:"2px 5px",borderRadius:4,background:POS_COLORS[p.pos]||"#555",color:"#fff",textAlign:"center",letterSpacing:"0.04em",border:"1px solid rgba(255,255,255,0.3)"}}>{p.pos}</span>
         <span style={{fontWeight:500}}>
@@ -493,13 +493,13 @@ export default function App() {
           {p.campAdj!==undefined&&p.campAdj!==0&&<span style={{marginLeft:4,fontSize:8,color:p.campAdj>0?"#0e9f6e":"#e03e3e"}}>{p.campAdj>0?"▲":"▼"}{Math.abs(p.campAdj)}</span>}
         </span>
         <span style={{color:"var(--text-secondary)",fontSize:9}}>{p.team}</span>
-        <span style={{color:"var(--text-muted)",fontSize:8}}>Bye {p.bye}</span>
+        <span style={{color:"var(--text-secondary)",fontSize:8}}>Bye {p.bye}</span>
         {ol?<span style={{fontSize:8,color:olineColor(ol.label)}}>Line: {ol.label}</span>:<span/>}
         {d?<span style={{fontSize:8,color:defColor(d.label)}}>Def #{d.rank} {d.label}</span>:<span/>}
         {s?<span style={{fontSize:8,color:sosColor(s.e)}}>SOS {s.e}</span>:<span/>}
-        <span style={{fontSize:8,fontWeight:500,color:safetyColor(p.safety)}}>{p.safety}</span>
+        <span style={{fontSize:8,fontWeight:500,color:safetyColor(p.safety),whiteSpace:"nowrap"}}>{p.safety}</span>
         <div style={{display:"flex",gap:3}}>
-          <button onClick={e=>{e.stopPropagation();markDrafted(p,true);}} style={{fontSize:8,padding:"2px 5px",borderRadius:"var(--radius)",border:"0.5px solid var(--border-accent)",background:"var(--bg-accent)",color:"var(--text-accent)",cursor:"pointer"}}>Mine</button>
+          <button onClick={e=>{e.stopPropagation();markDrafted(p,true);}} style={{fontSize:8,fontWeight:700,padding:"2px 6px",borderRadius:"var(--radius)",border:"1px solid var(--text-success)",background:"var(--bg-success)",color:"var(--text-success)",cursor:"pointer"}}>Mine</button>
           <button onClick={e=>{e.stopPropagation();markDrafted(p,false);}} style={{fontSize:8,padding:"2px 5px",borderRadius:"var(--radius)",border:"1px solid var(--border)",background:"transparent",color:"var(--text-secondary)",cursor:"pointer"}}>Gone</button>
         </div>
       </div>
@@ -527,6 +527,7 @@ export default function App() {
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+        .player-row:hover { filter: brightness(1.15); }
       `}</style>
       {/* Top bar */}
       <div style={{background:"var(--bg-header)",borderBottom:`1px solid var(--border)`,padding:"4px 12px",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
@@ -631,13 +632,13 @@ export default function App() {
                   <div style={{fontSize:9,fontWeight:500,color:"var(--text-accent)",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>Your pick — top recommendations</div>
                   <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                     {recs.map((p,i)=>(
-                      <div key={p.id} onClick={()=>setSelected(p)} style={{background:"var(--bg-card)",borderRadius:6,padding:"4px 8px",cursor:"pointer",border:`1px solid var(--border-accent)`,flex:1,minWidth:110}}>
+                      <div key={p.id} onClick={()=>setSelected(p)} style={{background:"var(--bg-card)",borderRadius:6,padding:"4px 8px",cursor:"pointer",border:`1px solid var(--border-accent)`,flex:"0 1 220px",minWidth:110}}>
                         <div style={{display:"flex",alignItems:"center",gap:4}}>
                           <span style={{fontSize:8,color:"var(--text-muted)"}}>#{i+1}</span>
                           <span style={{fontSize:11,fontWeight:500}}>{p.name}</span>
                           <span style={{fontSize:8,padding:"1px 3px",borderRadius:3,background:TIER_COLORS[p.tier],color:"#fff"}}>{p.pos}</span>
                           {p.campAdj!==undefined&&p.campAdj!==0&&<span style={{fontSize:8,color:p.campAdj>0?"#0e9f6e":"#e03e3e"}}>{p.campAdj>0?"▲":"▼"}{Math.abs(p.campAdj)}</span>}
-                          <span style={{fontSize:8,color:safetyColor(p.safety),marginLeft:"auto"}}>{p.safety}</span>
+                          <span style={{fontSize:8,color:safetyColor(p.safety),marginLeft:4}}>{p.safety}</span>
                         </div>
                         <div style={{fontSize:9,color:"var(--text-secondary)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{getReason(p,roster,round)}</div>
                       </div>
@@ -663,7 +664,7 @@ export default function App() {
                 {/* LEFT: Overall rankings */}
                 <div>
                   <div style={{fontSize:10,fontWeight:500,color:"var(--text-secondary)",marginBottom:4,paddingBottom:4,borderBottom:"0.5px solid var(--border)"}}>Overall rankings</div>
-                  <div style={{display:"grid",gridTemplateColumns:"24px 28px 160px 38px 38px 68px 80px 52px 38px 70px",gap:4,padding:"0 8px 3px",fontSize:10,fontWeight:600,color:"var(--text-secondary)",marginBottom:4}}>
+                  <div style={{display:"grid",gridTemplateColumns:"24px 28px 160px 38px 38px 68px 80px 52px 48px 70px",gap:4,padding:"0 8px 3px",fontSize:10,fontWeight:600,color:"var(--text-secondary)",marginBottom:4}}>
                     <span style={{textAlign:"right"}}>#</span><span>Pos</span><span>Player</span><span>Team</span><span>Bye</span><span>O-Line</span><span>Defense</span><span>SOS</span><span>Safety</span><span></span>
                   </div>
                   {sorted.map(p=><PlayerRow key={p.id} p={p}/>)}
@@ -672,7 +673,7 @@ export default function App() {
                 {/* RIGHT: Tier view */}
                 <div>
                   <div style={{fontSize:10,fontWeight:500,color:"var(--text-secondary)",marginBottom:4,paddingBottom:4,borderBottom:"0.5px solid var(--border)"}}>By tier</div>
-                  <div style={{display:"grid",gridTemplateColumns:"24px 28px 160px 38px 38px 68px 80px 52px 38px 70px",gap:4,padding:"0 8px 3px",fontSize:10,fontWeight:600,color:"var(--text-secondary)",marginBottom:4}}>
+                  <div style={{display:"grid",gridTemplateColumns:"24px 28px 160px 38px 38px 68px 80px 52px 48px 70px",gap:4,padding:"0 8px 3px",fontSize:10,fontWeight:600,color:"var(--text-secondary)",marginBottom:4}}>
                     <span style={{textAlign:"right"}}>#</span><span>Pos</span><span>Player</span><span>Team</span><span>Bye</span><span>O-Line</span><span>Defense</span><span>SOS</span><span>Safety</span><span></span>
                   </div>
                   {tierOrder.map(key=>{
