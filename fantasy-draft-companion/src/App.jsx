@@ -233,6 +233,220 @@ function meterWidth(val) {
   return map[val] || 50;
 }
 
+// ---- FantasyPros CSV import ----
+
+const MAIN_POOL_CAP = 300;
+
+const TEAM_ALIASES = { JAC:"JAX", WSH:"WAS", LVR:"LV", OAK:"LV", SD:"LAC", STL:"LAR", LA:"LAR", NOS:"NO", TBB:"TB", SFO:"SF", GNB:"GB", KAN:"KC", NWE:"NE" };
+const TEAM_NICKNAMES = ["49ers","cowboys","ravens","eagles","chiefs","bills","bengals","dolphins","packers","texans","rams","buccaneers","seahawks","steelers","vikings","falcons","colts","giants","jaguars","commanders","raiders","patriots","jets","saints","panthers","titans","cardinals","bears","browns","chargers","broncos","lions"];
+
+// Robust CSV parser: handles quoted fields, escaped quotes, and commas inside quotes.
+function parseCSV(text) {
+  const rows = [];
+  let row = [];
+  let field = "";
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; }
+        else inQuotes = false;
+      } else {
+        field += ch;
+      }
+    } else if (ch === '"') {
+      inQuotes = true;
+    } else if (ch === ",") {
+      row.push(field); field = "";
+    } else if (ch === "\n" || ch === "\r") {
+      if (ch === "\r" && text[i + 1] === "\n") i++;
+      row.push(field); field = "";
+      if (row.some(v => v !== "")) rows.push(row);
+      row = [];
+    } else {
+      field += ch;
+    }
+  }
+  if (field !== "" || row.length) {
+    row.push(field);
+    if (row.some(v => v !== "")) rows.push(row);
+  }
+  return rows;
+}
+
+function headerIndex(headers, name) {
+  return headers.findIndex(h => h.trim().toUpperCase() === name);
+}
+function parseIntSafe(v) {
+  const n = parseInt(String(v ?? "").replace(/[^0-9-]/g, ""), 10);
+  return Number.isFinite(n) ? n : null;
+}
+function parseSosStars(v) {
+  const m = String(v ?? "").match(/(\d+(\.\d+)?)/);
+  if (!m) return null;
+  return Math.max(0, Math.min(5, Math.round(parseFloat(m[1]))));
+}
+function splitPosRank(raw) {
+  const m = String(raw ?? "").trim().toUpperCase().match(/^([A-Z]+)(\d+)$/);
+  if (!m) return { pos: String(raw ?? "").trim().toUpperCase(), posRank: null };
+  return { pos: m[1], posRank: parseInt(m[2], 10) };
+}
+function normalizeTeam(t) {
+  const up = String(t ?? "").trim().toUpperCase();
+  return TEAM_ALIASES[up] || up;
+}
+function normalizeName(n) {
+  return String(n ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+function deriveSafety(tier) {
+  const t = tier ?? 5;
+  if (t <= 1) return "Very Safe";
+  if (t === 2) return "Safe";
+  if (t === 3) return "Solid";
+  return "Okay";
+}
+function deriveRisk(tier) {
+  const t = tier ?? 5;
+  if (t <= 1) return "Low";
+  if (t === 2) return "Slight";
+  if (t === 3) return "Medium";
+  return "High";
+}
+function deriveReward(sosStars) {
+  const s = sosStars ?? 2;
+  if (s >= 4) return "High";
+  if (s >= 2) return "Solid";
+  return "Low";
+}
+function ecrVsAdpNum(v) {
+  if (v == null) return null;
+  const s = String(v).trim();
+  if (s === "" || s === "-" || s === "—") return null;
+  const n = parseFloat(s.replace(/[^0-9.+-]/g, ""));
+  return Number.isFinite(n) ? n : null;
+}
+function ecrVsAdpColor(v) {
+  const n = ecrVsAdpNum(v);
+  if (n == null) return "var(--text-muted)";
+  if (n > 0) return "#0e9f6e";
+  if (n < 0) return "#d29922";
+  return "var(--text-muted)";
+}
+
+// Parses one FantasyPros CSV. forcedPos is null for the main ALL file (POS column present),
+// or "K"/"DEF" for the dedicated position files (no POS column).
+function parseFantasyProsRows(text, forcedPos) {
+  const rows = parseCSV(text);
+  if (!rows.length) return [];
+  const headers = rows[0];
+  const idx = {
+    rk: headerIndex(headers, "RK"),
+    tiers: headerIndex(headers, "TIERS"),
+    name: headerIndex(headers, "PLAYER NAME"),
+    team: headerIndex(headers, "TEAM"),
+    pos: headerIndex(headers, "POS"),
+    bye: headerIndex(headers, "BYE WEEK"),
+    sos: headerIndex(headers, "SOS SEASON"),
+    ecr: headerIndex(headers, "ECR VS. ADP"),
+  };
+  const out = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    const name = idx.name >= 0 ? (r[idx.name] || "").trim() : "";
+    if (!name) continue;
+    const rank = idx.rk >= 0 ? parseIntSafe(r[idx.rk]) : null;
+    if (rank == null) continue;
+    const tier = idx.tiers >= 0 ? parseIntSafe(r[idx.tiers]) : null;
+    const team = normalizeTeam(idx.team >= 0 ? r[idx.team] : "");
+    let pos, posRank;
+    if (forcedPos) {
+      pos = forcedPos;
+      posRank = rank;
+    } else {
+      const split = splitPosRank(idx.pos >= 0 ? r[idx.pos] : "");
+      pos = split.pos === "DST" ? "DEF" : split.pos;
+      posRank = split.posRank;
+    }
+    const bye = idx.bye >= 0 ? parseIntSafe(r[idx.bye]) : null;
+    const sosStars = idx.sos >= 0 ? parseSosStars(r[idx.sos]) : null;
+    const ecrVsAdp = idx.ecr >= 0 ? ((r[idx.ecr] || "").trim() || "-") : "-";
+    out.push({ rank, tier, name, team, pos, posRank, bye, sosStars, ecrVsAdp });
+  }
+  return out;
+}
+
+function classifyFileKind(text) {
+  const rows = parseCSV(text);
+  if (!rows.length) return "unknown";
+  const headers = rows[0];
+  if (headerIndex(headers, "POS") >= 0) return "main";
+  const nameIdx = headerIndex(headers, "PLAYER NAME");
+  const firstName = (rows[1]?.[nameIdx] || "").toLowerCase();
+  if (TEAM_NICKNAMES.some(n => firstName.includes(n))) return "DEF";
+  return "K";
+}
+
+function toAppPlayer(raw, id) {
+  const tier = raw.tier ?? 5;
+  return {
+    id, name: raw.name, pos: raw.pos, team: raw.team, tier,
+    rank: raw.rank, adp: raw.rank, bye: raw.bye,
+    posRank: raw.posRank, sosStars: raw.sosStars, ecrVsAdp: raw.ecrVsAdp,
+    risk: deriveRisk(tier), reward: deriveReward(raw.sosStars), safety: deriveSafety(tier),
+  };
+}
+
+// Merges the main ALL file with optional dedicated K/DST files. Dedicated files override
+// tier/posRank/bye/sosStars/ecrVsAdp for players already in the main pool (matched by name),
+// and supplement any K/DST players missing from the main pool's top-N cut.
+function buildImportedPlayerPool(files) {
+  let mainFile = null, kFile = null, defFile = null;
+  const fileSummaries = [];
+  files.forEach(f => {
+    const kind = classifyFileKind(f.text);
+    fileSummaries.push({ name: f.name, kind });
+    if (kind === "main" && !mainFile) mainFile = f;
+    else if (kind === "K" && !kFile) kFile = f;
+    else if (kind === "DEF" && !defFile) defFile = f;
+  });
+  if (!mainFile) throw new Error("No main ALL rankings file found (needs a POS column).");
+
+  const mainRows = parseFantasyProsRows(mainFile.text, null);
+  const sortedMain = [...mainRows].sort((a, b) => a.rank - b.rank).slice(0, MAIN_POOL_CAP);
+
+  const byKey = new Map();
+  sortedMain.forEach(p => byKey.set(normalizeName(p.name), p));
+
+  const applyOverride = (file, forcedPos, offset) => {
+    if (!file) return;
+    parseFantasyProsRows(file.text, forcedPos).forEach(r => {
+      const key = normalizeName(r.name);
+      const existing = byKey.get(key);
+      if (existing) {
+        byKey.set(key, {
+          ...existing,
+          tier: r.tier ?? existing.tier,
+          posRank: r.posRank ?? existing.posRank,
+          bye: r.bye ?? existing.bye,
+          sosStars: r.sosStars ?? existing.sosStars,
+          ecrVsAdp: r.ecrVsAdp ?? existing.ecrVsAdp,
+          pos: forcedPos,
+          team: r.team || existing.team,
+        });
+      } else {
+        byKey.set(key, { ...r, rank: offset + (r.posRank ?? 1) });
+      }
+    });
+  };
+  applyOverride(kFile, "K", 900);
+  applyOverride(defFile, "DEF", 950);
+
+  const merged = Array.from(byKey.values()).sort((a, b) => a.rank - b.rank);
+  const players = merged.map((p, i) => toAppPlayer(p, i + 1));
+  return { players, fileSummaries };
+}
+
 function getRecs(available, roster, round) {
   const counts = {QB:0,RB:0,WR:0,TE:0,K:0,DEF:0};
   roster.forEach(p => { if(counts[p.pos]!==undefined) counts[p.pos]++; });
@@ -318,7 +532,10 @@ export default function App() {
   const [recentPicks, setRecentPicks] = useState([]);
   const [xHandles, setXHandles] = useState(null);
   const [theme, setTheme] = useState("dark");
+  const [importInfo, setImportInfo] = useState(null);
+  const [importError, setImportError] = useState(null);
   const sidebarRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (sidebarRef.current) sidebarRef.current.scrollTop = 0;
@@ -414,6 +631,31 @@ export default function App() {
     setRecentPicks(prev=>prev.slice(0,-1));
   };
 
+  const handleImportFiles = async (e) => {
+    const fileList = Array.from(e.target.files || []);
+    if (!fileList.length) return;
+    try {
+      const files = await Promise.all(fileList.map(async f => ({ name: f.name, text: await f.text() })));
+      const { players: imported, fileSummaries } = buildImportedPlayerPool(files);
+      setPlayers(imported);
+      setDraftedIds([[], []]);
+      setRosters([[], []]);
+      setPick(1);
+      setRound(1);
+      setRecentPicks([]);
+      setSelected(null);
+      setCampAdjs({});
+      setCampStatus("idle");
+      setCampLastRun(null);
+      setImportError(null);
+      setImportInfo({ count: imported.length, timestamp: new Date(), files: fileSummaries });
+    } catch (err) {
+      setImportError(err.message || "Failed to import CSV files");
+    } finally {
+      e.target.value = "";
+    }
+  };
+
   const fetchCampNews = async () => {
     setFetchStatus("loading");
     try {
@@ -500,6 +742,7 @@ export default function App() {
         <span style={{fontWeight:500}}>
           {p.name}
           {p.campAdj!==undefined&&p.campAdj!==0&&<span style={{marginLeft:4,fontSize:8,color:p.campAdj>0?"#0e9f6e":"#e03e3e"}}>{p.campAdj>0?"▲":"▼"}{Math.abs(p.campAdj)}</span>}
+          {p.ecrVsAdp&&p.ecrVsAdp!=="-"&&<span style={{marginLeft:4,fontSize:8,color:ecrVsAdpColor(p.ecrVsAdp)}}>{p.ecrVsAdp}</span>}
         </span>
         <span style={{color:"var(--text-secondary)",fontSize:9}}>{p.team}</span>
         <span style={{color:"var(--text-secondary)",fontSize:8}}>Bye {p.bye}</span>
@@ -551,6 +794,10 @@ export default function App() {
           <span style={{fontSize:10,color:"var(--text-secondary)"}}>R{round} P{pick}</span>
           <span style={{fontSize:9,color:"var(--text-muted)"}}>Pos</span>
           <input type="number" min={1} max={teams} value={draftPos} onChange={e=>setDraftPos(Number(e.target.value))} style={{width:36,fontSize:10,textAlign:"center"}}/>
+          <input ref={fileInputRef} type="file" accept=".csv" multiple onChange={handleImportFiles} style={{display:"none"}}/>
+          <button onClick={()=>fileInputRef.current?.click()} style={{fontSize:10,padding:"3px 9px",borderRadius:6,border:`1px solid var(--border)`,background:"transparent",cursor:"pointer",color:"var(--text-secondary)"}}>
+            ⬆ Import Rankings
+          </button>
           <button onClick={()=>setTheme(t=>t==="dark"?"light":"dark")} style={{fontSize:10,padding:"3px 9px",borderRadius:6,border:`1px solid var(--border)`,background:"transparent",cursor:"pointer",color:"var(--text-secondary)",display:"flex",alignItems:"center",gap:4}}>
             {theme==="dark"?"☀ Light":"🌙 Dark"}
           </button>
@@ -565,6 +812,19 @@ export default function App() {
         ))}
         {campStatus==="done"&&<span style={{fontSize:9,padding:"2px 7px",borderRadius:"var(--radius)",background:"var(--bg-success)",color:"var(--text-success)",alignSelf:"center",marginLeft:4}}>Camp applied</span>}
       </div>
+
+      {(importInfo||importError)&&(
+        <div style={{padding:"5px 12px",background:importError?"var(--bg-danger)":"var(--bg-success)",borderBottom:`1px solid var(--border)`,display:"flex",alignItems:"center",gap:8,fontSize:10}}>
+          {importError?(
+            <span style={{color:"var(--text-danger)"}}>Import failed: {importError}</span>
+          ):(
+            <span style={{color:"var(--text-success)"}}>
+              Imported {importInfo.count} players from FantasyPros — {importInfo.timestamp.toLocaleTimeString()} · {importInfo.files.map(f=>`${f.name} (${f.kind==="main"?"ALL":f.kind==="DEF"?"DST":f.kind})`).join(", ")}
+            </span>
+          )}
+          <button onClick={()=>{setImportInfo(null);setImportError(null);}} style={{marginLeft:"auto",background:"none",border:"none",cursor:"pointer",color:"var(--text-muted)",fontSize:11}}>✕</button>
+        </div>
+      )}
 
       <div style={{display:"flex",height:"calc(100vh - 70px)",overflow:"hidden"}}>
 
@@ -835,10 +1095,16 @@ export default function App() {
             </div>
 
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5,marginBottom:12}}>
-              {[{l:"Rank",v:`#${selected.rank}`},{l:"ADP",v:selected.adp.toFixed(1)},{l:"Tier",v:`T${selected.tier}`},{l:"Half PPR",v:`${selected.ppg}`}].map(m=>(
+              {[
+                {l:"Rank",v:`#${selected.rank}`},
+                {l:"ADP",v:(selected.adp??selected.rank).toFixed(1)},
+                {l:"Tier",v:`T${selected.tier}`},
+                {l:"Half PPR",v:selected.ppg!=null?`${selected.ppg}`:"-"},
+                ...(selected.ecrVsAdp&&selected.ecrVsAdp!=="-"?[{l:"ECR vs ADP",v:selected.ecrVsAdp,color:ecrVsAdpColor(selected.ecrVsAdp)}]:[]),
+              ].map(m=>(
                 <div key={m.l} style={{background:"var(--bg-row)",borderRadius:6,padding:"7px 9px",border:`1px solid var(--border)`}}>
                   <div style={{fontSize:8,color:"var(--text-muted)"}}>{m.l}</div>
-                  <div style={{fontSize:13,fontWeight:500,marginTop:1}}>{m.v}</div>
+                  <div style={{fontSize:13,fontWeight:500,marginTop:1,color:m.color||"var(--text-primary)"}}>{m.v}</div>
                 </div>
               ))}
             </div>
