@@ -78,8 +78,8 @@ const THEMES = {
 const POS_COLORS = { QB: "var(--pos-qb)", RB: "var(--pos-rb)", WR: "var(--pos-wr)", TE: "var(--pos-te)", K: "var(--pos-k)", DEF: "var(--pos-def)" };
 
 // Columns: rank, pos, player (name + inline team), bye, o-line, defense, sos, safety, actions
-const ROW_COLS = "28px 36px 200px 44px 76px 90px 58px 58px 78px";
-const ROW_COLS_COMPACT = "24px 30px 168px 38px 64px 76px 48px 48px 60px";
+const ROW_COLS = "28px 36px 200px 44px 92px 112px 58px 58px 78px";
+const ROW_COLS_COMPACT = "20px 26px 118px 38px 84px 102px 40px 54px 84px";
 
 const POSITIONS = ["ALL", "QB", "RB", "WR", "TE", "K", "DEF"];
 const TIER_COLORS = { 1: "#1a56db", 2: "#0e9f6e", 3: "#c27803", 4: "#9b1c1c" };
@@ -744,7 +744,7 @@ export default function App() {
     const isSel = selected?.id===p.id;
     const zebra = index%2===1 ? "var(--bg-row-alt)" : "var(--bg-row)";
     return (
-      <div onClick={()=>setSelected(p)} className="player-row" style={{display:"grid",gridTemplateColumns:compact?ROW_COLS_COMPACT:ROW_COLS,gap:compact?4:8,alignItems:"center",padding:compact?"6px 8px":"8px 12px",background:isSel?"var(--bg-row-sel)":isRec?"var(--bg-row-rec)":zebra,boxShadow:isSel?"inset 0 0 0 1px var(--border-accent)":"none",borderBottom:"1px solid var(--border)",borderLeft:`4px solid ${POS_COLORS[p.pos]||"#555"}`,cursor:"pointer",fontSize:compact?11:12,transition:"background 0.1s, filter 0.1s"}}>
+      <div onClick={()=>setSelected(p)} className="player-row" style={{display:"grid",gridTemplateColumns:compact?ROW_COLS_COMPACT:ROW_COLS,gap:compact?3:8,alignItems:"center",padding:compact?"6px 6px":"8px 12px",background:isSel?"var(--bg-row-sel)":isRec?"var(--bg-row-rec)":zebra,boxShadow:isSel?"inset 0 0 0 1px var(--border-accent)":"none",borderBottom:"1px solid var(--border)",borderLeft:`4px solid ${POS_COLORS[p.pos]||"#555"}`,cursor:"pointer",fontSize:compact?11:12,transition:"background 0.1s, filter 0.1s"}}>
         <span style={{color:"var(--text-secondary)",fontWeight:700,textAlign:"right"}}>{p.rank}</span>
         <span style={{fontSize:compact?9:10,fontWeight:800,padding:"2px 5px",borderRadius:4,background:POS_COLORS[p.pos]||"#555",color:"#fff",textAlign:"center",letterSpacing:"0.04em",border:"1px solid rgba(255,255,255,0.3)"}}>{p.pos}</span>
         <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
@@ -754,8 +754,8 @@ export default function App() {
           {p.ecrVsAdp&&p.ecrVsAdp!=="-"&&<span style={{marginLeft:6,fontSize:9,color:ecrVsAdpColor(p.ecrVsAdp)}}>{p.ecrVsAdp}</span>}
         </span>
         <span style={{color:"var(--text-secondary)",fontSize:compact?9:10}}>Bye {p.bye}</span>
-        {ol?<span style={{fontSize:compact?9:10,color:olineTextColor(ol.label)}}>Line: {ol.label}</span>:<span/>}
-        {d?<span style={{fontSize:compact?9:10,color:defTextColor(d.label)}}>Def #{d.rank} {d.label}</span>:<span/>}
+        {ol?<span style={{fontSize:compact?9:10,color:olineTextColor(ol.label),whiteSpace:"nowrap"}}>Line: {ol.label}</span>:<span/>}
+        {d?<span style={{fontSize:compact?9:10,color:defTextColor(d.label),whiteSpace:"nowrap"}}>Def #{d.rank} {d.label}</span>:<span/>}
         {s?<span style={{fontSize:compact?9:10,color:sosTextColor(s.e)}}>SOS {s.e}</span>:<span/>}
         <span style={{fontSize:compact?9:10,fontWeight:600,color:safetyColor(p.safety),whiteSpace:"nowrap"}}>{p.safety}</span>
         <div style={{display:"flex",gap:4}}>
@@ -953,7 +953,7 @@ export default function App() {
                 <div>
                   <div style={{fontSize:10,fontWeight:500,color:"var(--text-secondary)",marginBottom:4,paddingBottom:4,borderBottom:"0.5px solid var(--border)"}}>By tier</div>
                   <div style={{border:"1px solid var(--border)",borderRadius:8,overflow:"hidden"}}>
-                    <div style={{display:"grid",gridTemplateColumns:ROW_COLS_COMPACT,gap:4,padding:"7px 8px",fontSize:10,fontWeight:700,color:"var(--text-secondary)",textTransform:"uppercase",letterSpacing:"0.04em",background:"var(--bg-card)",borderBottom:"1px solid var(--border)"}}>
+                    <div style={{display:"grid",gridTemplateColumns:ROW_COLS_COMPACT,gap:3,padding:"7px 6px",fontSize:10,fontWeight:700,color:"var(--text-secondary)",textTransform:"uppercase",letterSpacing:"0.04em",background:"var(--bg-card)",borderBottom:"1px solid var(--border)"}}>
                       <span style={{textAlign:"right"}}>#</span><span>Pos</span><span>Player</span><span>Bye</span><span>O-Line</span><span>Defense</span><span>SOS</span><span>Safety</span><span></span>
                     </div>
                     {tierOrder.map(key=>{
