@@ -9,6 +9,7 @@ const THEMES = {
     "--bg-sidebar": "#0d1117",
     "--bg-card": "#161b22",
     "--bg-row": "#1c2128",
+    "--bg-row-alt": "#20262e",
     "--bg-row-hover": "#21262d",
     "--bg-row-rec": "#1a2e1a",
     "--bg-row-sel": "#1a2433",
@@ -43,6 +44,7 @@ const THEMES = {
     "--bg-sidebar": "#f8fafc",
     "--bg-card": "#ffffff",
     "--bg-row": "#ffffff",
+    "--bg-row-alt": "#f6f8fa",
     "--bg-row-hover": "#f1f5f9",
     "--bg-row-rec": "#f0fdf4",
     "--bg-row-sel": "#eff6ff",
@@ -75,8 +77,9 @@ const THEMES = {
 
 const POS_COLORS = { QB: "var(--pos-qb)", RB: "var(--pos-rb)", WR: "var(--pos-wr)", TE: "var(--pos-te)", K: "var(--pos-k)", DEF: "var(--pos-def)" };
 
-const ROW_COLS = "24px 28px 160px 38px 38px 68px 80px 52px 48px 70px";
-const ROW_COLS_COMPACT = "24px 28px 155px 36px 34px 62px 76px 44px 44px 56px";
+// Columns: rank, pos, player (name + inline team), bye, o-line, defense, sos, safety, actions
+const ROW_COLS = "28px 36px 200px 44px 76px 90px 58px 58px 78px";
+const ROW_COLS_COMPACT = "24px 30px 168px 38px 64px 76px 48px 48px 60px";
 
 const POSITIONS = ["ALL", "QB", "RB", "WR", "TE", "K", "DEF"];
 const TIER_COLORS = { 1: "#1a56db", 2: "#0e9f6e", 3: "#c27803", 4: "#9b1c1c" };
@@ -734,28 +737,30 @@ export default function App() {
     </div>
   );
 
-  const PlayerRow = ({p, compact}) => {
+  const PlayerRow = ({p, compact, index=0}) => {
     const ol = (p.pos==="RB"||p.pos==="WR"||p.pos==="QB") ? olineGrade(p.team,p.pos) : null;
     const d = DEF[p.team]; const s = SOS[p.team];
     const isRec = recs.some(r=>r.id===p.id);
+    const isSel = selected?.id===p.id;
+    const zebra = index%2===1 ? "var(--bg-row-alt)" : "var(--bg-row)";
     return (
-      <div onClick={()=>setSelected(p)} className="player-row" style={{display:"grid",gridTemplateColumns:compact?ROW_COLS_COMPACT:ROW_COLS,gap:compact?3:4,alignItems:"center",padding:"3.5px 8px",borderRadius:6,background:selected?.id===p.id?"var(--bg-row-sel)":isRec?"var(--bg-row-rec)":"var(--bg-row)",border:`1px solid ${selected?.id===p.id?"var(--border-accent)":isRec?"#1a3a1a":"var(--border)"}`,borderLeft:`3px solid ${POS_COLORS[p.pos]||"#555"}`,cursor:"pointer",fontSize:11,marginBottom:1.5,transition:"background 0.1s, filter 0.1s"}}>
-        <span style={{color:"var(--text-secondary)",fontWeight:600,textAlign:"right"}}>{p.rank}</span>
-        <span style={{fontSize:10,fontWeight:800,padding:"2px 5px",borderRadius:4,background:POS_COLORS[p.pos]||"#555",color:"#fff",textAlign:"center",letterSpacing:"0.04em",border:"1px solid rgba(255,255,255,0.3)"}}>{p.pos}</span>
-        <span style={{fontWeight:500}}>
-          {p.name}
-          {p.campAdj!==undefined&&p.campAdj!==0&&<span style={{marginLeft:4,fontSize:9,color:p.campAdj>0?"#0e9f6e":"#e03e3e"}}>{p.campAdj>0?"▲":"▼"}{Math.abs(p.campAdj)}</span>}
-          {p.ecrVsAdp&&p.ecrVsAdp!=="-"&&<span style={{marginLeft:4,fontSize:9,color:ecrVsAdpColor(p.ecrVsAdp)}}>{p.ecrVsAdp}</span>}
+      <div onClick={()=>setSelected(p)} className="player-row" style={{display:"grid",gridTemplateColumns:compact?ROW_COLS_COMPACT:ROW_COLS,gap:compact?4:8,alignItems:"center",padding:compact?"6px 8px":"8px 12px",background:isSel?"var(--bg-row-sel)":isRec?"var(--bg-row-rec)":zebra,boxShadow:isSel?"inset 0 0 0 1px var(--border-accent)":"none",borderBottom:"1px solid var(--border)",borderLeft:`4px solid ${POS_COLORS[p.pos]||"#555"}`,cursor:"pointer",fontSize:compact?11:12,transition:"background 0.1s, filter 0.1s"}}>
+        <span style={{color:"var(--text-secondary)",fontWeight:700,textAlign:"right"}}>{p.rank}</span>
+        <span style={{fontSize:compact?9:10,fontWeight:800,padding:"2px 5px",borderRadius:4,background:POS_COLORS[p.pos]||"#555",color:"#fff",textAlign:"center",letterSpacing:"0.04em",border:"1px solid rgba(255,255,255,0.3)"}}>{p.pos}</span>
+        <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+          <span style={{fontWeight:700,fontSize:compact?12:13,color:"var(--text-primary)"}}>{p.name}</span>
+          <span style={{marginLeft:6,fontSize:compact?10:11,fontWeight:500,color:"var(--text-secondary)"}}>{p.team}</span>
+          {p.campAdj!==undefined&&p.campAdj!==0&&<span style={{marginLeft:6,fontSize:9,color:p.campAdj>0?"#0e9f6e":"#e03e3e"}}>{p.campAdj>0?"▲":"▼"}{Math.abs(p.campAdj)}</span>}
+          {p.ecrVsAdp&&p.ecrVsAdp!=="-"&&<span style={{marginLeft:6,fontSize:9,color:ecrVsAdpColor(p.ecrVsAdp)}}>{p.ecrVsAdp}</span>}
         </span>
-        <span style={{color:"var(--text-secondary)",fontSize:10}}>{p.team}</span>
-        <span style={{color:"var(--text-secondary)",fontSize:9}}>Bye {p.bye}</span>
-        {ol?<span style={{fontSize:9,color:olineTextColor(ol.label)}}>Line: {ol.label}</span>:<span/>}
-        {d?<span style={{fontSize:9,color:defTextColor(d.label)}}>Def #{d.rank} {d.label}</span>:<span/>}
-        {s?<span style={{fontSize:9,color:sosTextColor(s.e)}}>SOS {s.e}</span>:<span/>}
-        <span style={{fontSize:9,fontWeight:500,color:safetyColor(p.safety),whiteSpace:"nowrap"}}>{p.safety}</span>
-        <div style={{display:"flex",gap:3}}>
-          <button onClick={e=>{e.stopPropagation();markDrafted(p,true);}} style={{fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:"var(--radius)",border:"1px solid var(--text-success)",background:"var(--bg-success)",color:"var(--text-success)",cursor:"pointer"}}>Mine</button>
-          <button onClick={e=>{e.stopPropagation();markDrafted(p,false);}} style={{fontSize:9,padding:"2px 5px",borderRadius:"var(--radius)",border:"1px solid var(--border)",background:"transparent",color:"var(--text-secondary)",cursor:"pointer"}}>Gone</button>
+        <span style={{color:"var(--text-secondary)",fontSize:compact?9:10}}>Bye {p.bye}</span>
+        {ol?<span style={{fontSize:compact?9:10,color:olineTextColor(ol.label)}}>Line: {ol.label}</span>:<span/>}
+        {d?<span style={{fontSize:compact?9:10,color:defTextColor(d.label)}}>Def #{d.rank} {d.label}</span>:<span/>}
+        {s?<span style={{fontSize:compact?9:10,color:sosTextColor(s.e)}}>SOS {s.e}</span>:<span/>}
+        <span style={{fontSize:compact?9:10,fontWeight:600,color:safetyColor(p.safety),whiteSpace:"nowrap"}}>{p.safety}</span>
+        <div style={{display:"flex",gap:4}}>
+          <button onClick={e=>{e.stopPropagation();markDrafted(p,true);}} style={{fontSize:9,fontWeight:700,padding:"3px 7px",borderRadius:"var(--radius)",border:"1px solid var(--text-success)",background:"var(--bg-success)",color:"var(--text-success)",cursor:"pointer"}}>Mine</button>
+          <button onClick={e=>{e.stopPropagation();markDrafted(p,false);}} style={{fontSize:9,padding:"3px 6px",borderRadius:"var(--radius)",border:"1px solid var(--border)",background:"transparent",color:"var(--text-secondary)",cursor:"pointer"}}>Gone</button>
         </div>
       </div>
     );
@@ -766,7 +771,7 @@ export default function App() {
       <style>{`
         :root {
           --bg-app: #0d1117; --bg-header: #161b22; --bg-sidebar: #0d1117;
-          --bg-card: #161b22; --bg-row: #1c2128; --bg-row-hover: #21262d;
+          --bg-card: #161b22; --bg-row: #1c2128; --bg-row-alt: #20262e; --bg-row-hover: #21262d;
           --bg-row-rec: #1a2e1a; --bg-row-sel: #1a2433; --bg-accent-soft: #1a2e4a;
           --bg-warn: #2e1f0a; --bg-danger: #2e0a0a; --bg-success: #0a2e0a;
           --border: #30363d; --border-accent: #1f6feb;
@@ -936,34 +941,37 @@ export default function App() {
                 {/* LEFT: Overall rankings */}
                 <div>
                   <div style={{fontSize:10,fontWeight:500,color:"var(--text-secondary)",marginBottom:4,paddingBottom:4,borderBottom:"0.5px solid var(--border)"}}>Overall rankings</div>
-                  <div style={{display:"grid",gridTemplateColumns:"24px 28px 160px 38px 38px 68px 80px 52px 48px 70px",gap:4,padding:"0 8px 3px",fontSize:10,fontWeight:600,color:"var(--text-secondary)",marginBottom:4}}>
-                    <span style={{textAlign:"right"}}>#</span><span>Pos</span><span>Player</span><span>Team</span><span>Bye</span><span>O-Line</span><span>Defense</span><span>SOS</span><span>Safety</span><span></span>
+                  <div style={{border:"1px solid var(--border)",borderRadius:8,overflow:"hidden"}}>
+                    <div style={{display:"grid",gridTemplateColumns:ROW_COLS,gap:8,padding:"7px 12px",fontSize:10,fontWeight:700,color:"var(--text-secondary)",textTransform:"uppercase",letterSpacing:"0.04em",background:"var(--bg-card)",borderBottom:"1px solid var(--border)"}}>
+                      <span style={{textAlign:"right"}}>#</span><span>Pos</span><span>Player</span><span>Bye</span><span>O-Line</span><span>Defense</span><span>SOS</span><span>Safety</span><span></span>
+                    </div>
+                    {sorted.map((p,i)=><PlayerRow key={p.id} p={p} index={i}/>)}
                   </div>
-                  {sorted.map(p=><PlayerRow key={p.id} p={p}/>)}
                 </div>
 
                 {/* RIGHT: Tier view */}
                 <div>
                   <div style={{fontSize:10,fontWeight:500,color:"var(--text-secondary)",marginBottom:4,paddingBottom:4,borderBottom:"0.5px solid var(--border)"}}>By tier</div>
-                  <div style={{display:"grid",gridTemplateColumns:ROW_COLS_COMPACT,gap:3,padding:"0 8px 3px",fontSize:10,fontWeight:600,color:"var(--text-secondary)",marginBottom:4}}>
-                    <span style={{textAlign:"right"}}>#</span><span>Pos</span><span>Player</span><span>Team</span><span>Bye</span><span>O-Line</span><span>Defense</span><span>SOS</span><span>Safety</span><span></span>
-                  </div>
-                  {tierOrder.map(key=>{
-                    const ps=tierGroups[key];
-                    const [pos,tier]=key.split("-");
-                    const color=TIER_COLORS[Number(tier)]||"#888";
-                    const label=(TIER_LABELS[pos]||TIER_LABELS.WR)[Number(tier)];
-                    return (
-                      <div key={key} style={{marginBottom:6}}>
-                        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3,paddingRight:8}}>
-                          <span style={{fontSize:10,fontWeight:800,color,textTransform:"uppercase",letterSpacing:"0.08em",padding:"2px 7px",borderRadius:4,background:`${color}38`,border:`1px solid ${color}88`}}>{pos} T{tier} — {label}</span>
-                          <div style={{flex:1,height:"0.5px",background:color,opacity:0.25}}></div>
-                          <span style={{fontSize:9,fontWeight:600,color,padding:"0px 5px",borderRadius:3,background:`${color}22`}}>{ps.length} left</span>
+                  <div style={{border:"1px solid var(--border)",borderRadius:8,overflow:"hidden"}}>
+                    <div style={{display:"grid",gridTemplateColumns:ROW_COLS_COMPACT,gap:4,padding:"7px 8px",fontSize:10,fontWeight:700,color:"var(--text-secondary)",textTransform:"uppercase",letterSpacing:"0.04em",background:"var(--bg-card)",borderBottom:"1px solid var(--border)"}}>
+                      <span style={{textAlign:"right"}}>#</span><span>Pos</span><span>Player</span><span>Bye</span><span>O-Line</span><span>Defense</span><span>SOS</span><span>Safety</span><span></span>
+                    </div>
+                    {tierOrder.map(key=>{
+                      const ps=tierGroups[key];
+                      const [pos,tier]=key.split("-");
+                      const color=TIER_COLORS[Number(tier)]||"#888";
+                      const label=(TIER_LABELS[pos]||TIER_LABELS.WR)[Number(tier)];
+                      return (
+                        <div key={key}>
+                          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"5px 10px",background:`${color}26`,borderTop:`1px solid ${color}55`,borderBottom:`1px solid ${color}55`}}>
+                            <span style={{fontSize:10,fontWeight:800,color,textTransform:"uppercase",letterSpacing:"0.06em"}}>{pos} T{tier} — {label}</span>
+                            <span style={{fontSize:9,fontWeight:700,color}}>{ps.length} left</span>
+                          </div>
+                          {ps.map((p,i)=><PlayerRow key={p.id} p={p} compact index={i}/>)}
                         </div>
-                        {ps.map(p=><PlayerRow key={p.id} p={p} compact/>)}
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </>
