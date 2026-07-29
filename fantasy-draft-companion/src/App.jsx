@@ -564,7 +564,7 @@ export default function App() {
       <div style={{display:"flex",height:"calc(100vh - 70px)",overflow:"hidden"}}>
 
         {/* LEFT SIDEBAR: Scarcity + Tier counts */}
-        <div style={{width:130,background:"var(--bg-sidebar)",borderRight:`1px solid var(--border)`,padding:10,overflow:"auto",flexShrink:0}}>
+        <div style={{width:165,background:"var(--bg-sidebar)",borderRight:`1px solid var(--border)`,padding:10,overflow:"auto",flexShrink:0}}>
           <div style={{fontSize:9,fontWeight:500,color:"var(--text-muted)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:8}}>Tier scarcity</div>
 
           {/* Run alert */}
@@ -593,7 +593,7 @@ export default function App() {
                 const color=count===0?"#9b1c1c":count<=2?"#c27803":count<=5?"#1a56db":"#0e9f6e";
                 return (
                   <div key={tier} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"2px 0",borderBottom:"0.5px solid var(--border)"}}>
-                    <span style={{fontSize:10,color:"var(--text-muted)"}}>T{tier}</span>
+                    <span style={{fontSize:11,fontWeight:600,color:"var(--text-secondary)"}}>T{tier}</span>
                     <span style={{fontSize:10,fontWeight:500,color}}>{count}</span>
                   </div>
                 );
@@ -632,11 +632,11 @@ export default function App() {
             <>
               {/* Recs bar */}
               {isMyTurn&&recs.length>0&&(
-                <div style={{marginBottom:8,background:"var(--bg-accent-soft)",border:`1px solid var(--border-accent)`,borderRadius:8,padding:"5px 10px"}}>
+                <div style={{marginBottom:8,background:"var(--bg-accent-soft)",border:`1px solid var(--border-accent)`,borderRadius:8,padding:"5px 10px",width:"fit-content",maxWidth:"100%"}}>
                   <div style={{fontSize:9,fontWeight:500,color:"var(--text-accent)",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>Your pick — top recommendations</div>
-                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                  <div style={{display:"inline-flex",gap:6,flexWrap:"nowrap"}}>
                     {recs.map((p,i)=>(
-                      <div key={p.id} onClick={()=>setSelected(p)} style={{background:"var(--bg-card)",borderRadius:6,padding:"4px 8px",cursor:"pointer",border:`1px solid var(--border-accent)`,flex:"0 1 220px",minWidth:110}}>
+                      <div key={p.id} onClick={()=>setSelected(p)} style={{background:"var(--bg-card)",borderRadius:6,padding:"4px 8px",cursor:"pointer",border:`1px solid var(--border-accent)`,width:220,flexShrink:0}}>
                         <div style={{display:"flex",alignItems:"center",gap:4}}>
                           <span style={{fontSize:8,color:"var(--text-muted)"}}>#{i+1}</span>
                           <span style={{fontSize:11,fontWeight:500}}>{p.name}</span>
