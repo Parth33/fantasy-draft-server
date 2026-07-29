@@ -75,6 +75,9 @@ const THEMES = {
 
 const POS_COLORS = { QB: "var(--pos-qb)", RB: "var(--pos-rb)", WR: "var(--pos-wr)", TE: "var(--pos-te)", K: "var(--pos-k)", DEF: "var(--pos-def)" };
 
+const ROW_COLS = "24px 28px 160px 38px 38px 68px 80px 52px 48px 70px";
+const ROW_COLS_COMPACT = "24px 28px 155px 36px 34px 62px 76px 44px 44px 56px";
+
 const POSITIONS = ["ALL", "QB", "RB", "WR", "TE", "K", "DEF"];
 const TIER_COLORS = { 1: "#1a56db", 2: "#0e9f6e", 3: "#c27803", 4: "#9b1c1c" };
 const TIER_LABELS = {
@@ -731,28 +734,28 @@ export default function App() {
     </div>
   );
 
-  const PlayerRow = ({p}) => {
+  const PlayerRow = ({p, compact}) => {
     const ol = (p.pos==="RB"||p.pos==="WR"||p.pos==="QB") ? olineGrade(p.team,p.pos) : null;
     const d = DEF[p.team]; const s = SOS[p.team];
     const isRec = recs.some(r=>r.id===p.id);
     return (
-      <div onClick={()=>setSelected(p)} className="player-row" style={{display:"grid",gridTemplateColumns:"24px 28px 160px 38px 38px 68px 80px 52px 48px 70px",gap:4,alignItems:"center",padding:"3.5px 8px",borderRadius:6,background:selected?.id===p.id?"var(--bg-row-sel)":isRec?"var(--bg-row-rec)":"var(--bg-row)",border:`1px solid ${selected?.id===p.id?"var(--border-accent)":isRec?"#1a3a1a":"var(--border)"}`,borderLeft:`3px solid ${POS_COLORS[p.pos]||"#555"}`,cursor:"pointer",fontSize:10,marginBottom:1.5,transition:"background 0.1s, filter 0.1s"}}>
+      <div onClick={()=>setSelected(p)} className="player-row" style={{display:"grid",gridTemplateColumns:compact?ROW_COLS_COMPACT:ROW_COLS,gap:compact?3:4,alignItems:"center",padding:"3.5px 8px",borderRadius:6,background:selected?.id===p.id?"var(--bg-row-sel)":isRec?"var(--bg-row-rec)":"var(--bg-row)",border:`1px solid ${selected?.id===p.id?"var(--border-accent)":isRec?"#1a3a1a":"var(--border)"}`,borderLeft:`3px solid ${POS_COLORS[p.pos]||"#555"}`,cursor:"pointer",fontSize:11,marginBottom:1.5,transition:"background 0.1s, filter 0.1s"}}>
         <span style={{color:"var(--text-secondary)",fontWeight:600,textAlign:"right"}}>{p.rank}</span>
-        <span style={{fontSize:9,fontWeight:800,padding:"2px 5px",borderRadius:4,background:POS_COLORS[p.pos]||"#555",color:"#fff",textAlign:"center",letterSpacing:"0.04em",border:"1px solid rgba(255,255,255,0.3)"}}>{p.pos}</span>
+        <span style={{fontSize:10,fontWeight:800,padding:"2px 5px",borderRadius:4,background:POS_COLORS[p.pos]||"#555",color:"#fff",textAlign:"center",letterSpacing:"0.04em",border:"1px solid rgba(255,255,255,0.3)"}}>{p.pos}</span>
         <span style={{fontWeight:500}}>
           {p.name}
-          {p.campAdj!==undefined&&p.campAdj!==0&&<span style={{marginLeft:4,fontSize:8,color:p.campAdj>0?"#0e9f6e":"#e03e3e"}}>{p.campAdj>0?"▲":"▼"}{Math.abs(p.campAdj)}</span>}
-          {p.ecrVsAdp&&p.ecrVsAdp!=="-"&&<span style={{marginLeft:4,fontSize:8,color:ecrVsAdpColor(p.ecrVsAdp)}}>{p.ecrVsAdp}</span>}
+          {p.campAdj!==undefined&&p.campAdj!==0&&<span style={{marginLeft:4,fontSize:9,color:p.campAdj>0?"#0e9f6e":"#e03e3e"}}>{p.campAdj>0?"▲":"▼"}{Math.abs(p.campAdj)}</span>}
+          {p.ecrVsAdp&&p.ecrVsAdp!=="-"&&<span style={{marginLeft:4,fontSize:9,color:ecrVsAdpColor(p.ecrVsAdp)}}>{p.ecrVsAdp}</span>}
         </span>
-        <span style={{color:"var(--text-secondary)",fontSize:9}}>{p.team}</span>
-        <span style={{color:"var(--text-secondary)",fontSize:8}}>Bye {p.bye}</span>
-        {ol?<span style={{fontSize:8,color:olineTextColor(ol.label)}}>Line: {ol.label}</span>:<span/>}
-        {d?<span style={{fontSize:8,color:defTextColor(d.label)}}>Def #{d.rank} {d.label}</span>:<span/>}
-        {s?<span style={{fontSize:8,color:sosTextColor(s.e)}}>SOS {s.e}</span>:<span/>}
-        <span style={{fontSize:8,fontWeight:500,color:safetyColor(p.safety),whiteSpace:"nowrap"}}>{p.safety}</span>
+        <span style={{color:"var(--text-secondary)",fontSize:10}}>{p.team}</span>
+        <span style={{color:"var(--text-secondary)",fontSize:9}}>Bye {p.bye}</span>
+        {ol?<span style={{fontSize:9,color:olineTextColor(ol.label)}}>Line: {ol.label}</span>:<span/>}
+        {d?<span style={{fontSize:9,color:defTextColor(d.label)}}>Def #{d.rank} {d.label}</span>:<span/>}
+        {s?<span style={{fontSize:9,color:sosTextColor(s.e)}}>SOS {s.e}</span>:<span/>}
+        <span style={{fontSize:9,fontWeight:500,color:safetyColor(p.safety),whiteSpace:"nowrap"}}>{p.safety}</span>
         <div style={{display:"flex",gap:3}}>
-          <button onClick={e=>{e.stopPropagation();markDrafted(p,true);}} style={{fontSize:8,fontWeight:700,padding:"2px 6px",borderRadius:"var(--radius)",border:"1px solid var(--text-success)",background:"var(--bg-success)",color:"var(--text-success)",cursor:"pointer"}}>Mine</button>
-          <button onClick={e=>{e.stopPropagation();markDrafted(p,false);}} style={{fontSize:8,padding:"2px 5px",borderRadius:"var(--radius)",border:"1px solid var(--border)",background:"transparent",color:"var(--text-secondary)",cursor:"pointer"}}>Gone</button>
+          <button onClick={e=>{e.stopPropagation();markDrafted(p,true);}} style={{fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:"var(--radius)",border:"1px solid var(--text-success)",background:"var(--bg-success)",color:"var(--text-success)",cursor:"pointer"}}>Mine</button>
+          <button onClick={e=>{e.stopPropagation();markDrafted(p,false);}} style={{fontSize:9,padding:"2px 5px",borderRadius:"var(--radius)",border:"1px solid var(--border)",background:"transparent",color:"var(--text-secondary)",cursor:"pointer"}}>Gone</button>
         </div>
       </div>
     );
@@ -942,7 +945,7 @@ export default function App() {
                 {/* RIGHT: Tier view */}
                 <div>
                   <div style={{fontSize:10,fontWeight:500,color:"var(--text-secondary)",marginBottom:4,paddingBottom:4,borderBottom:"0.5px solid var(--border)"}}>By tier</div>
-                  <div style={{display:"grid",gridTemplateColumns:"24px 28px 160px 38px 38px 68px 80px 52px 48px 70px",gap:4,padding:"0 8px 3px",fontSize:10,fontWeight:600,color:"var(--text-secondary)",marginBottom:4}}>
+                  <div style={{display:"grid",gridTemplateColumns:ROW_COLS_COMPACT,gap:3,padding:"0 8px 3px",fontSize:10,fontWeight:600,color:"var(--text-secondary)",marginBottom:4}}>
                     <span style={{textAlign:"right"}}>#</span><span>Pos</span><span>Player</span><span>Team</span><span>Bye</span><span>O-Line</span><span>Defense</span><span>SOS</span><span>Safety</span><span></span>
                   </div>
                   {tierOrder.map(key=>{
@@ -957,7 +960,7 @@ export default function App() {
                           <div style={{flex:1,height:"0.5px",background:color,opacity:0.25}}></div>
                           <span style={{fontSize:9,fontWeight:600,color,padding:"0px 5px",borderRadius:3,background:`${color}22`}}>{ps.length} left</span>
                         </div>
-                        {ps.map(p=><PlayerRow key={p.id} p={p}/>)}
+                        {ps.map(p=><PlayerRow key={p.id} p={p} compact/>)}
                       </div>
                     );
                   })}
