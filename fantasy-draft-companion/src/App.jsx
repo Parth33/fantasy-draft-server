@@ -79,7 +79,7 @@ const POS_COLORS = { QB: "var(--pos-qb)", RB: "var(--pos-rb)", WR: "var(--pos-wr
 
 // Columns: rank, pos, player (name + inline team), bye, o-line, defense, sos, safety, actions
 const ROW_COLS = "28px 36px 200px 44px 92px 112px 58px 58px 78px";
-const ROW_COLS_COMPACT = "20px 26px 118px 38px 84px 102px 40px 54px 84px";
+const ROW_COLS_COMPACT = "22px 28px 210px 30px 72px 88px 46px 48px 76px";
 
 const POSITIONS = ["ALL", "QB", "RB", "WR", "TE", "K", "DEF"];
 const TIER_COLORS = { 1: "#1a56db", 2: "#0e9f6e", 3: "#c27803", 4: "#9b1c1c" };
@@ -335,8 +335,8 @@ function ecrVsAdpNum(v) {
 function ecrVsAdpColor(v) {
   const n = ecrVsAdpNum(v);
   if (n == null) return "var(--text-muted)";
-  if (n > 0) return "#0e9f6e";
-  if (n < 0) return "#d29922";
+  if (n > 0) return "#22c55e";
+  if (n < 0) return "#f59e0b";
   return "var(--text-muted)";
 }
 
@@ -751,7 +751,7 @@ export default function App() {
           <span style={{fontWeight:700,fontSize:compact?12:13,color:"var(--text-primary)"}}>{p.name}</span>
           <span style={{marginLeft:6,fontSize:compact?10:11,fontWeight:500,color:"var(--text-secondary)"}}>{p.team}</span>
           {p.campAdj!==undefined&&p.campAdj!==0&&<span style={{marginLeft:6,fontSize:9,color:p.campAdj>0?"#0e9f6e":"#e03e3e"}}>{p.campAdj>0?"▲":"▼"}{Math.abs(p.campAdj)}</span>}
-          {p.ecrVsAdp&&p.ecrVsAdp!=="-"&&<span style={{marginLeft:6,fontSize:9,color:ecrVsAdpColor(p.ecrVsAdp)}}>{p.ecrVsAdp}</span>}
+          {p.ecrVsAdp&&p.ecrVsAdp!=="-"&&<span style={{marginLeft:6,fontSize:compact?10:11,fontWeight:800,color:ecrVsAdpColor(p.ecrVsAdp)}}>{p.ecrVsAdp}</span>}
         </span>
         <span style={{color:"var(--text-secondary)",fontSize:compact?9:10}}>Bye {p.bye}</span>
         {ol?<span style={{fontSize:compact?9:10,color:olineTextColor(ol.label),whiteSpace:"nowrap"}}>Line: {ol.label}</span>:<span/>}
@@ -852,7 +852,7 @@ export default function App() {
           {tierAlerts.map((a,i)=>(
             <div key={i} style={{background:a.urgent?"var(--bg-danger)":"var(--bg-warning)",border:`0.5px solid ${a.urgent?"var(--border-danger)":"var(--border-warning)"}`,borderRadius:"var(--radius)",padding:"5px 7px",marginBottom:5,fontSize:9}}>
               <span style={{fontWeight:500,color:a.urgent?"var(--text-danger)":"var(--text-warning)"}}>{a.pos} T{a.tier}: {a.count} left</span>
-              {a.urgent&&<div style={{color:"var(--text-danger)",fontSize:8}}>Act now</div>}
+              {a.urgent&&<div style={{color:"var(--text-danger)",fontSize:8,fontWeight:800}}>Act now</div>}
             </div>
           ))}
 
