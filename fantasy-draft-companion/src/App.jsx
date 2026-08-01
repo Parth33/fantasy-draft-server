@@ -903,19 +903,32 @@ export default function App() {
                   </div>
                 )}
 
-                {/* My roster — compact panel filling remaining width */}
-                <div style={{flex:1,minWidth:0,background:"var(--bg-card)",border:`1px solid var(--border)`,borderRadius:8,padding:"5px 10px"}}>
-                  <div style={{fontSize:9,fontWeight:600,color:"var(--text-secondary)",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>My roster</div>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(90px,1fr))",gap:"2px 10px"}}>
-                    {ROSTER_SLOTS.map((slot,i)=>{
-                      const p=roster[i];
-                      return (
-                        <div key={i} style={{display:"flex",alignItems:"center",gap:4,fontSize:9,overflow:"hidden",whiteSpace:"nowrap"}}>
-                          <span style={{color:"var(--text-muted)",fontWeight:600,flexShrink:0}}>{slot}</span>
-                          <span style={{overflow:"hidden",textOverflow:"ellipsis",color:p?"var(--text-primary)":"var(--text-muted)",fontStyle:p?"normal":"italic"}}>{p?p.name:"Empty"}</span>
-                        </div>
-                      );
-                    })}
+                {/* My roster — vertical two-column panel */}
+                <div style={{flex:1,minWidth:0,background:"var(--bg-card)",border:`1px solid var(--border)`,borderRadius:8,padding:"6px 10px"}}>
+                  <div style={{fontSize:9,fontWeight:700,color:"var(--text-secondary)",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.08em"}}>My Roster</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
+                    <div>
+                      {[0,4,5,6,7,8,9].map(i=>{
+                        const slot=ROSTER_SLOTS[i],p=roster[i];
+                        return (
+                          <div key={i} style={{display:"flex",alignItems:"center",gap:6,fontSize:11,padding:"4px 0",overflow:"hidden",whiteSpace:"nowrap"}}>
+                            <span style={{color:POS_COLORS[slot]||"var(--text-muted)",fontWeight:800,flexShrink:0,width:36}}>{slot}</span>
+                            <span style={{overflow:"hidden",textOverflow:"ellipsis",color:p?"var(--text-primary)":"var(--text-muted)"}}>{p?p.name:"Empty"}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div>
+                      {[1,2,3,10,11,12,13,14].map(i=>{
+                        const slot=ROSTER_SLOTS[i],p=roster[i];
+                        return (
+                          <div key={i} style={{display:"flex",alignItems:"center",gap:6,fontSize:11,padding:"4px 0",overflow:"hidden",whiteSpace:"nowrap"}}>
+                            <span style={{color:POS_COLORS[slot]||"var(--text-muted)",fontWeight:800,flexShrink:0,width:36}}>{slot}</span>
+                            <span style={{overflow:"hidden",textOverflow:"ellipsis",color:p?"var(--text-primary)":"var(--text-muted)"}}>{p?p.name:"Empty"}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               </div>
