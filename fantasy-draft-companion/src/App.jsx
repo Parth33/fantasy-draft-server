@@ -903,26 +903,22 @@ export default function App() {
                   </div>
                 )}
 
-                {/* My roster — tight two-column panel, no extra padding/margin bloat */}
-                <div style={{flex:1,minWidth:0,alignSelf:"flex-start",background:"var(--bg-card)",border:`1px solid var(--border)`,borderRadius:8,padding:"3px 10px 4px"}}>
-                  <div style={{display:"grid",gridTemplateColumns:"auto 1fr auto 1fr",columnGap:8,rowGap:0,alignItems:"center"}}>
-                    <span style={{gridColumn:"1 / span 4",fontSize:8,fontWeight:700,color:"var(--text-secondary)",padding:"0 0 2px",textTransform:"uppercase",letterSpacing:"0.08em"}}>My Roster</span>
-                    {(()=>{
-                      const leftIdx=[0,4,5,6,7,8,9], rightIdx=[1,2,3,10,11,12,13,14];
-                      const rows=Math.max(leftIdx.length,rightIdx.length);
-                      return Array.from({length:rows}).flatMap((_,row)=>{
-                        const li=leftIdx[row], ri=rightIdx[row];
-                        const lSlot=li!==undefined?ROSTER_SLOTS[li]:null, lP=li!==undefined?roster[li]:null;
-                        const rSlot=ri!==undefined?ROSTER_SLOTS[ri]:null, rP=ri!==undefined?roster[ri]:null;
-                        return [
-                          <span key={`lp${row}`} style={{fontSize:10,lineHeight:1.35,fontWeight:800,color:POS_COLORS[lSlot]||"var(--text-muted)",whiteSpace:"nowrap"}}>{lSlot||""}</span>,
-                          <span key={`ln${row}`} style={{fontSize:10,lineHeight:1.35,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:lP?"var(--text-primary)":"var(--text-muted)"}}>{lSlot?(lP?lP.name:"Empty"):""}</span>,
-                          <span key={`rp${row}`} style={{fontSize:10,lineHeight:1.35,fontWeight:800,color:POS_COLORS[rSlot]||"var(--text-muted)",whiteSpace:"nowrap"}}>{rSlot||""}</span>,
-                          <span key={`rn${row}`} style={{fontSize:10,lineHeight:1.35,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:rP?"var(--text-primary)":"var(--text-muted)"}}>{rSlot?(rP?rP.name:"Empty"):""}</span>,
-                        ];
-                      });
-                    })()}
-                  </div>
+                {/* My roster — two horizontal rows of equal-width slot cards */}
+                <div style={{flex:1,minWidth:0,alignSelf:"flex-start",background:"var(--bg-card)",border:`1px solid var(--border)`,borderRadius:8,padding:"5px 8px"}}>
+                  <div style={{fontSize:8,fontWeight:700,color:"var(--text-secondary)",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.08em"}}>My Roster</div>
+                  {[[0,4,5,1,2,3,6,7,8,9],[10,11,12,13,14]].map((idxRow,ri)=>(
+                    <div key={ri} style={{display:"grid",gridTemplateColumns:`repeat(${idxRow.length},1fr)`,gap:4,marginBottom:ri===0?4:0}}>
+                      {idxRow.map(i=>{
+                        const slot=ROSTER_SLOTS[i],p=roster[i];
+                        return (
+                          <div key={i} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:1,background:"var(--bg-row)",border:`1px solid var(--border)`,borderRadius:5,padding:"4px 2px",overflow:"hidden"}}>
+                            <span style={{fontSize:11,fontWeight:800,color:POS_COLORS[slot]||"var(--text-muted)",letterSpacing:"0.02em"}}>{slot}</span>
+                            <span style={{fontSize:12,fontWeight:700,color:p?"var(--text-primary)":"var(--text-muted)",maxWidth:"100%",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p?p.name:"—"}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
                 </div>
               </div>
 
