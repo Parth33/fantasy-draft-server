@@ -884,7 +884,7 @@ export default function App() {
               {/* Recs bar + inline roster panel */}
               <div style={{marginBottom:8,display:"flex",gap:8,alignItems:"flex-start"}}>
                 {isMyTurn&&recs.length>0&&(
-                  <div style={{background:"var(--bg-accent-soft)",border:`1px solid var(--border-accent)`,borderRadius:8,padding:"5px 10px",width:"fit-content",flexShrink:0}}>
+                  <div style={{background:"var(--bg-accent-soft)",border:`1px solid var(--border-accent)`,borderRadius:8,padding:"5px 10px",width:"fit-content",flexShrink:0,lineHeight:1.3}}>
                     <div style={{fontSize:9,fontWeight:500,color:"var(--text-accent)",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>Your pick — top recommendations</div>
                     <div style={{display:"inline-flex",gap:6,flexWrap:"nowrap"}}>
                       {recs.map((p,i)=>(
@@ -903,11 +903,11 @@ export default function App() {
                   </div>
                 )}
 
-                {/* My roster — two horizontal rows of equal-width slot cards */}
-                <div style={{flex:1,minWidth:0,alignSelf:"flex-start",background:"var(--bg-card)",border:`1px solid var(--border)`,borderRadius:8,padding:"5px 8px"}}>
+                {/* My roster — two horizontal rows of equal-width slot cards, wraps if too narrow */}
+                <div style={{flex:1,minWidth:0,alignSelf:"flex-start",background:"var(--bg-card)",border:`1px solid var(--border)`,borderRadius:8,padding:"5px 8px",lineHeight:1.3}}>
                   <div style={{fontSize:8,fontWeight:700,color:"var(--text-secondary)",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.08em"}}>My Roster</div>
                   {[[0,4,5,1,2,3,6,7,8,9],[10,11,12,13,14]].map((idxRow,ri)=>(
-                    <div key={ri} style={{display:"grid",gridTemplateColumns:`repeat(${idxRow.length},1fr)`,gap:4,marginBottom:ri===0?4:0}}>
+                    <div key={ri} style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(50px,1fr))",gap:4,marginBottom:ri===0?4:0}}>
                       {idxRow.map(i=>{
                         const slot=ROSTER_SLOTS[i],p=roster[i];
                         return (
