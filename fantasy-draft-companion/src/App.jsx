@@ -79,7 +79,7 @@ const POS_COLORS = { QB: "var(--pos-qb)", RB: "var(--pos-rb)", WR: "var(--pos-wr
 
 // Columns: rank, pos, player (name + inline team), bye, o-line, defense, sos, safety, actions
 const ROW_COLS = "28px 36px 200px 44px 92px 112px 58px 58px 78px";
-const ROW_COLS_COMPACT = "22px 28px 210px 30px 72px 88px 46px 48px 76px";
+const ROW_COLS_COMPACT = "22px 28px 210px 40px 72px 88px 46px 48px 76px";
 
 const POSITIONS = ["ALL", "QB", "RB", "WR", "TE", "K", "DEF"];
 const TIER_COLORS = { 1: "#1a56db", 2: "#0e9f6e", 3: "#c27803", 4: "#9b1c1c" };
@@ -753,7 +753,7 @@ export default function App() {
           {p.campAdj!==undefined&&p.campAdj!==0&&<span style={{marginLeft:6,fontSize:9,color:p.campAdj>0?"#0e9f6e":"#e03e3e"}}>{p.campAdj>0?"▲":"▼"}{Math.abs(p.campAdj)}</span>}
           {p.ecrVsAdp&&p.ecrVsAdp!=="-"&&<span style={{marginLeft:6,fontSize:compact?10:11,fontWeight:800,color:ecrVsAdpColor(p.ecrVsAdp)}}>{p.ecrVsAdp}</span>}
         </span>
-        <span style={{color:"var(--text-secondary)",fontSize:compact?9:10}}>Bye {p.bye}</span>
+        <span style={{color:"var(--text-secondary)",fontSize:compact?9:10,whiteSpace:"nowrap"}}>Bye {p.bye}</span>
         {ol?<span style={{fontSize:compact?9:10,color:olineTextColor(ol.label),whiteSpace:"nowrap"}}>Line: {ol.label}</span>:<span/>}
         {d?<span style={{fontSize:compact?9:10,color:defTextColor(d.label),whiteSpace:"nowrap"}}>Def #{d.rank} {d.label}</span>:<span/>}
         {s?<span style={{fontSize:compact?9:10,color:sosTextColor(s.e)}}>SOS {s.e}</span>:<span/>}
@@ -888,13 +888,13 @@ export default function App() {
                     <div style={{fontSize:9,fontWeight:500,color:"var(--text-accent)",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>Your pick — top recommendations</div>
                     <div style={{display:"inline-flex",gap:6,flexWrap:"nowrap"}}>
                       {recs.map((p,i)=>(
-                        <div key={p.id} onClick={()=>setSelected(p)} style={{background:"var(--bg-card)",borderRadius:6,padding:"8px 10px",cursor:"pointer",border:`1px solid var(--border-accent)`,width:220,flexShrink:0}}>
+                        <div key={p.id} onClick={()=>setSelected(p)} style={{background:"var(--bg-card)",borderRadius:6,padding:"8px 10px",cursor:"pointer",border:`1px solid var(--border-accent)`,width:236,flexShrink:0}}>
                           <div style={{display:"flex",alignItems:"center",gap:4}}>
                             <span style={{fontSize:8,color:"var(--text-muted)"}}>#{i+1}</span>
-                            <span style={{fontSize:13,fontWeight:600,flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</span>
+                            <span style={{fontSize:12,fontWeight:600,whiteSpace:"nowrap"}}>{p.name}</span>
                             <span style={{fontSize:8,padding:"1px 3px",borderRadius:3,background:TIER_COLORS[p.tier],color:"#fff"}}>{p.pos}</span>
                             {p.campAdj!==undefined&&p.campAdj!==0&&<span style={{fontSize:8,color:p.campAdj>0?"#0e9f6e":"#e03e3e"}}>{p.campAdj>0?"▲":"▼"}{Math.abs(p.campAdj)}</span>}
-                            <span style={{fontSize:8,color:safetyColor(p.safety),marginLeft:4}}>{p.safety}</span>
+                            <span style={{fontSize:8,color:safetyColor(p.safety),marginLeft:4,whiteSpace:"nowrap"}}>{p.safety}</span>
                           </div>
                           <div style={{fontSize:9,color:"var(--text-secondary)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{getReason(p,roster,round)}</div>
                         </div>
