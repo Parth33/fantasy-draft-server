@@ -621,6 +621,64 @@ export default function App() {
     return alerts;
   }, [scarcity]);
 
+  // Group currently-available players by position+tier — backs both the cliff warning and the "last in tier" badge.
+  const tiersByPos = useMemo(() => {
+    const byPos={};
+    ["QB","RB","WR","TE"].forEach(pos=>{
+      const byTier={};
+      available.filter(p=>p.pos===pos).forEach(p=>{(byTier[p.tier] ||= []).push(p);});
+      Object.values(byTier).forEach(list=>list.sort((a,b)=>a.rank-b.rank));
+      byPos[pos]=byTier;
+    });
+    return byPos;
+  }, [available]);
+
+  // Tier cliff warning: the current (best available) tier for a position is down to its last 1-2 players,
+  // and the next tier is either a real rank gap away or a full tier further out (a tier was drafted through).
+  const cliffAlerts = useMemo(() => {
+    const alerts=[];
+    ["QB","RB","WR","TE"].forEach(pos=>{
+      const byTier=tiersByPos[pos];
+      const tiersPresent=Object.keys(byTier).map(Number).sort((a,b)=>a-b);
+      if (!tiersPresent.length) return;
+      const currentTier=tiersPresent[0];
+      const currentList=byTier[currentTier];
+      if (currentList.length>2) return;
+      const nextTier=tiersPresent.find(t=>t>currentTier);
+      if (nextTier==null) return;
+      const nextList=byTier[nextTier];
+      const lastRank=currentList[currentList.length-1].rank;
+      const nextRank=nextList[0].rank;
+      const gap=nextRank-lastRank;
+      if (gap>=6 || (nextTier-currentTier)>=2) {
+        alerts.push({pos, tier:currentTier, count:currentList.length, players:currentList, nextTier, gap});
+      }
+    });
+    return alerts;
+  }, [tiersByPos]);
+
+  // Players who are the sole remaining option in their position's current tier — drives the "LAST IN TIER" row badge.
+  const lastInTierIds = useMemo(() => {
+    const s=new Set();
+    Object.values(tiersByPos).forEach(byTier=>{
+      Object.values(byTier).forEach(list=>{ if(list.length===1) s.add(list[0].id); });
+    });
+    return s;
+  }, [tiersByPos]);
+
+  // Bye week tracking on my roster — per-position counts drive the "BYE CONFLICT" flag, overall counts drive the stack summary.
+  const byeCountsByPos = useMemo(() => {
+    const m={};
+    roster.forEach(p=>{ const k=`${p.pos}-${p.bye}`; m[k]=(m[k]||0)+1; });
+    return m;
+  }, [roster]);
+
+  const byeStackSummary = useMemo(() => {
+    const m={};
+    roster.forEach(p=>{ m[p.bye]=(m[p.bye]||0)+1; });
+    return Object.entries(m).filter(([wk,c])=>c>=2).sort((a,b)=>b[1]-a[1]).map(([wk,c])=>`Wk${wk} x${c}`);
+  }, [roster]);
+
   const markDrafted = useCallback((player, isMine) => {
     setDraftedIds(prev=>{const n=[...prev];n[league]=[...n[league],player.id];return n;});
     if(isMine) setRosters(prev=>{const n=[...prev];n[league]=[...n[league],player];return n;});
@@ -743,25 +801,50 @@ export default function App() {
     const isRec = recs.some(r=>r.id===p.id);
     const isSel = selected?.id===p.id;
     const zebra = index%2===1 ? "var(--bg-row-alt)" : "var(--bg-row)";
+    const isLastInTier = lastInTierIds.has(p.id);
+    const byeConflictCount = byeCountsByPos[`${p.pos}-${p.bye}`] || 0;
+    const hasByeConflict = byeConflictCount >= 2;
+    const showBadgeRow = isLastInTier || hasByeConflict;
     return (
-      <div onClick={()=>setSelected(p)} className="player-row" style={{display:"grid",gridTemplateColumns:compact?ROW_COLS_COMPACT:ROW_COLS,gap:compact?3:8,alignItems:"center",padding:compact?"6px 6px":"8px 12px",background:isSel?"var(--bg-row-sel)":isRec?"var(--bg-row-rec)":zebra,boxShadow:isSel?"inset 0 0 0 1px var(--border-accent)":"none",borderBottom:"1px solid var(--border)",borderLeft:`4px solid ${POS_COLORS[p.pos]||"#555"}`,cursor:"pointer",fontSize:compact?11:12,transition:"background 0.1s, filter 0.1s"}}>
-        <span style={{color:"var(--text-secondary)",fontWeight:700,textAlign:"right"}}>{p.rank}</span>
-        <span style={{fontSize:compact?9:10,fontWeight:800,padding:"2px 5px",borderRadius:4,background:POS_COLORS[p.pos]||"#555",color:"#fff",textAlign:"center",letterSpacing:"0.04em",border:"1px solid rgba(255,255,255,0.3)"}}>{p.pos}</span>
-        <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-          <span style={{fontWeight:700,fontSize:compact?12:13,color:"var(--text-primary)"}}>{p.name}</span>
-          <span style={{marginLeft:6,fontSize:compact?10:11,fontWeight:500,color:"var(--text-secondary)"}}>{p.team}</span>
-          {p.campAdj!==undefined&&p.campAdj!==0&&<span style={{marginLeft:6,fontSize:9,color:p.campAdj>0?"#0e9f6e":"#e03e3e"}}>{p.campAdj>0?"▲":"▼"}{Math.abs(p.campAdj)}</span>}
-          {p.ecrVsAdp&&p.ecrVsAdp!=="-"&&<span style={{marginLeft:6,fontSize:compact?10:11,fontWeight:800,color:ecrVsAdpColor(p.ecrVsAdp)}}>{p.ecrVsAdp}</span>}
-        </span>
-        <span style={{color:"var(--text-secondary)",fontSize:compact?9:10,whiteSpace:"nowrap"}}>Bye {p.bye}</span>
-        {ol?<span style={{fontSize:compact?9:10,color:olineTextColor(ol.label),whiteSpace:"nowrap"}}>Line: {ol.label}</span>:<span/>}
-        {d?<span style={{fontSize:compact?9:10,color:defTextColor(d.label),whiteSpace:"nowrap"}}>Def #{d.rank} {d.label}</span>:<span/>}
-        {s?<span style={{fontSize:compact?9:10,color:sosTextColor(s.e)}}>SOS {s.e}</span>:<span/>}
-        <span style={{fontSize:compact?9:10,fontWeight:600,color:safetyColor(p.safety),whiteSpace:"nowrap"}}>{p.safety}</span>
-        <div style={{display:"flex",gap:4}}>
-          <button onClick={e=>{e.stopPropagation();markDrafted(p,true);}} style={{fontSize:9,fontWeight:700,padding:"3px 7px",borderRadius:"var(--radius)",border:"1px solid var(--text-success)",background:"var(--bg-success)",color:"var(--text-success)",cursor:"pointer"}}>Mine</button>
-          <button onClick={e=>{e.stopPropagation();markDrafted(p,false);}} style={{fontSize:9,padding:"3px 6px",borderRadius:"var(--radius)",border:"1px solid var(--border)",background:"transparent",color:"var(--text-secondary)",cursor:"pointer"}}>Gone</button>
+      <div onClick={()=>setSelected(p)} className="player-row" style={{background:isSel?"var(--bg-row-sel)":isRec?"var(--bg-row-rec)":zebra,boxShadow:isSel?"inset 0 0 0 1px var(--border-accent)":"none",borderBottom:"1px solid var(--border)",borderLeft:`4px solid ${POS_COLORS[p.pos]||"#555"}`,cursor:"pointer",transition:"background 0.1s, filter 0.1s"}}>
+        <div style={{display:"grid",gridTemplateColumns:compact?ROW_COLS_COMPACT:ROW_COLS,gap:compact?3:8,alignItems:"center",padding:compact?"6px 6px":"8px 12px",fontSize:compact?11:12}}>
+          <span style={{color:"var(--text-secondary)",fontWeight:700,textAlign:"right"}}>{p.rank}</span>
+          <span style={{fontSize:compact?9:10,fontWeight:800,padding:"2px 5px",borderRadius:4,background:POS_COLORS[p.pos]||"#555",color:"#fff",textAlign:"center",letterSpacing:"0.04em",border:"1px solid rgba(255,255,255,0.3)"}}>{p.pos}</span>
+          <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+            <span style={{fontWeight:700,fontSize:compact?12:13,color:"var(--text-primary)"}}>{p.name}</span>
+            <span style={{marginLeft:6,fontSize:compact?10:11,fontWeight:500,color:"var(--text-secondary)"}}>{p.team}</span>
+            {p.campAdj!==undefined&&p.campAdj!==0&&<span style={{marginLeft:6,fontSize:9,color:p.campAdj>0?"#0e9f6e":"#e03e3e"}}>{p.campAdj>0?"▲":"▼"}{Math.abs(p.campAdj)}</span>}
+            {p.ecrVsAdp&&p.ecrVsAdp!=="-"&&<span style={{marginLeft:6,fontSize:compact?10:11,fontWeight:800,color:ecrVsAdpColor(p.ecrVsAdp)}}>{p.ecrVsAdp}</span>}
+          </span>
+          <span style={{color:"var(--text-secondary)",fontSize:compact?9:10,whiteSpace:"nowrap"}}>Bye {p.bye}</span>
+          {ol?<span style={{fontSize:compact?9:10,color:olineTextColor(ol.label),whiteSpace:"nowrap"}}>Line: {ol.label}</span>:<span/>}
+          {d?(
+            p.pos==="DEF"?(
+              <span style={{fontSize:compact?9:10,color:defTextColor(d.label),whiteSpace:"nowrap"}}>Def #{d.rank} {d.label}</span>
+            ):(
+              <span title={d.shootout?"Weak defense = more offensive volume = good for this player":"Strong defense = fewer shootouts, less offensive volume"} style={{display:"flex",alignItems:"center",gap:4,overflow:"hidden",whiteSpace:"nowrap"}}>
+                <span style={{fontSize:compact?9:10,color:"var(--text-secondary)"}}>#{d.rank}</span>
+                {d.shootout?(
+                  <span style={{fontSize:compact?8:9,fontWeight:800,padding:"1px 4px",borderRadius:3,background:"var(--bg-success)",color:"var(--text-success)",whiteSpace:"nowrap"}}>🔥{compact?"":" SHOOTOUT"}</span>
+                ):(
+                  <span style={{fontSize:compact?8:9,color:"var(--text-muted)",whiteSpace:"nowrap"}}>{d.label}</span>
+                )}
+              </span>
+            )
+          ):<span/>}
+          {s?<span style={{fontSize:compact?9:10,color:sosTextColor(s.e)}}>SOS {s.e}</span>:<span/>}
+          <span style={{fontSize:compact?9:10,fontWeight:600,color:safetyColor(p.safety),whiteSpace:"nowrap"}}>{p.safety}</span>
+          <div style={{display:"flex",gap:4}}>
+            <button onClick={e=>{e.stopPropagation();markDrafted(p,true);}} style={{fontSize:9,fontWeight:700,padding:"3px 7px",borderRadius:"var(--radius)",border:"1px solid var(--text-success)",background:"var(--bg-success)",color:"var(--text-success)",cursor:"pointer"}}>Mine</button>
+            <button onClick={e=>{e.stopPropagation();markDrafted(p,false);}} style={{fontSize:9,padding:"3px 6px",borderRadius:"var(--radius)",border:"1px solid var(--border)",background:"transparent",color:"var(--text-secondary)",cursor:"pointer"}}>Gone</button>
+          </div>
         </div>
+        {showBadgeRow&&(
+          <div style={{display:"flex",gap:6,flexWrap:"wrap",padding:compact?"0 6px 5px 6px":"0 12px 6px 12px"}}>
+            {isLastInTier&&<span style={{fontSize:8,fontWeight:800,padding:"2px 5px",borderRadius:3,background:"var(--bg-warn)",color:"var(--text-warning)",border:"1px solid var(--text-warning)",letterSpacing:"0.03em"}}>LAST IN TIER</span>}
+            {hasByeConflict&&<span style={{fontSize:8,fontWeight:800,padding:"2px 5px",borderRadius:3,background:"var(--bg-warn)",color:"var(--text-warning)",border:"1px solid var(--text-warning)",letterSpacing:"0.03em"}}>BYE CONFLICT (Wk {p.bye})</span>}
+          </div>
+        )}
       </div>
     );
   };
@@ -881,6 +964,27 @@ export default function App() {
 
           {activeTab==="board"&&(
             <>
+              {/* Tier cliff warning */}
+              {isMyTurn&&cliffAlerts.length>0&&(
+                <div style={{marginBottom:8,display:"flex",flexDirection:"column",gap:6}}>
+                  {cliffAlerts.map((a,i)=>{
+                    const tierLabel=(TIER_LABELS[a.pos]||TIER_LABELS.WR)[a.tier]||`Tier ${a.tier}`;
+                    const names=a.players.map(p=>p.name).join(", ");
+                    return (
+                      <div key={i} style={{background:"linear-gradient(90deg, var(--bg-danger), var(--bg-warn))",border:"1.5px solid var(--text-danger)",borderRadius:8,padding:"8px 12px",display:"flex",alignItems:"flex-start",gap:8}}>
+                        <span style={{fontSize:16,lineHeight:1}}>⚠️</span>
+                        <div>
+                          <div style={{fontSize:11,fontWeight:800,color:"var(--text-danger)",letterSpacing:"0.04em",textTransform:"uppercase"}}>Cliff warning</div>
+                          <div style={{fontSize:11,color:"var(--text-primary)",marginTop:1}}>
+                            Only {a.count} {tierLabel.toLowerCase()} {a.pos}{a.count>1?"s":""} left ({names}). Next {a.pos} tier is a significant drop.
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
               {/* Recs bar + inline roster panel */}
               <div style={{marginBottom:8,display:"flex",gap:8,alignItems:"flex-start"}}>
                 {isMyTurn&&recs.length>0&&(
@@ -905,7 +1009,10 @@ export default function App() {
 
                 {/* My roster — two horizontal rows of equal-width slot cards, wraps if too narrow */}
                 <div style={{flex:1,minWidth:0,alignSelf:"flex-start",background:"var(--bg-card)",border:`1px solid var(--border)`,borderRadius:8,padding:"5px 8px",lineHeight:1.3}}>
-                  <div style={{fontSize:8,fontWeight:700,color:"var(--text-secondary)",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.08em"}}>My Roster</div>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                    <span style={{fontSize:8,fontWeight:700,color:"var(--text-secondary)",textTransform:"uppercase",letterSpacing:"0.08em"}}>My Roster</span>
+                    {byeStackSummary.length>0&&<span style={{fontSize:9,fontWeight:600,color:"var(--text-warning)"}}>Bye stack: {byeStackSummary.join(", ")}</span>}
+                  </div>
                   {[[0,4,5,1,2,3,6,7,8,9],[10,11,12,13,14]].map((idxRow,ri)=>(
                     <div key={ri} style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(50px,1fr))",gap:4,marginBottom:ri===0?4:0}}>
                       {idxRow.map(i=>{
@@ -977,7 +1084,11 @@ export default function App() {
 
           {activeTab==="roster"&&(
             <div>
-              <div style={{marginBottom:10}}><span style={{fontSize:13,fontWeight:500}}>My roster</span><span style={{fontSize:11,color:"var(--text-secondary)",marginLeft:8}}>{roster.length}/15</span></div>
+              <div style={{marginBottom:10,display:"flex",alignItems:"center",gap:8}}>
+                <span style={{fontSize:13,fontWeight:500}}>My roster</span>
+                <span style={{fontSize:11,color:"var(--text-secondary)"}}>{roster.length}/15</span>
+                {byeStackSummary.length>0&&<span style={{fontSize:10,fontWeight:600,padding:"2px 7px",borderRadius:"var(--radius)",background:"var(--bg-warn)",color:"var(--text-warning)",border:"1px solid var(--text-warning)"}}>Bye stack: {byeStackSummary.join(", ")}</span>}
+              </div>
               {ROSTER_SLOTS.map((slot,i)=>{
                 const p=roster[i];
                 return (
