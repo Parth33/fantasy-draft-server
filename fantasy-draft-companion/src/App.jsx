@@ -888,10 +888,10 @@ export default function App() {
                     <div style={{fontSize:9,fontWeight:500,color:"var(--text-accent)",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>Your pick — top recommendations</div>
                     <div style={{display:"inline-flex",gap:6,flexWrap:"nowrap"}}>
                       {recs.map((p,i)=>(
-                        <div key={p.id} onClick={()=>setSelected(p)} style={{background:"var(--bg-card)",borderRadius:6,padding:"4px 8px",cursor:"pointer",border:`1px solid var(--border-accent)`,width:220,flexShrink:0}}>
+                        <div key={p.id} onClick={()=>setSelected(p)} style={{background:"var(--bg-card)",borderRadius:6,padding:"8px 10px",cursor:"pointer",border:`1px solid var(--border-accent)`,width:220,flexShrink:0}}>
                           <div style={{display:"flex",alignItems:"center",gap:4}}>
                             <span style={{fontSize:8,color:"var(--text-muted)"}}>#{i+1}</span>
-                            <span style={{fontSize:11,fontWeight:500}}>{p.name}</span>
+                            <span style={{fontSize:13,fontWeight:600,flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</span>
                             <span style={{fontSize:8,padding:"1px 3px",borderRadius:3,background:TIER_COLORS[p.tier],color:"#fff"}}>{p.pos}</span>
                             {p.campAdj!==undefined&&p.campAdj!==0&&<span style={{fontSize:8,color:p.campAdj>0?"#0e9f6e":"#e03e3e"}}>{p.campAdj>0?"▲":"▼"}{Math.abs(p.campAdj)}</span>}
                             <span style={{fontSize:8,color:safetyColor(p.safety),marginLeft:4}}>{p.safety}</span>
