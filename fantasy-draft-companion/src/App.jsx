@@ -752,9 +752,10 @@ export default function App() {
   }, [roster]);
 
   const markDrafted = useCallback((player, isMine) => {
-    if (isMine && roster.filter(p => p !== null).length >= 15) return;
     setDraftedIds(prev=>{const n=[...prev];n[league]=[...n[league],player.id];return n;});
     if(isMine) setRosters(prev=>{
+      const currentCount = prev[league].filter(p => p !== null).length;
+      if (isMine && currentCount >= 15) return prev;
       const n=[...prev];
       const teamRoster=[...n[league]];
       const idx=assignRosterSlot(teamRoster, player.pos);
@@ -767,7 +768,7 @@ export default function App() {
     if(inRound===teams) setRound(r=>r+1);
     setPick(p=>p+1);
     setSelected(null);
-  }, [league, pick, teams, rosterCount]);
+  }, [league, pick, teams]);
 
   const undoLast = () => {
     setDraftedIds(prev=>{const n=[...prev];n[league]=n[league].slice(0,-1);return n;});
