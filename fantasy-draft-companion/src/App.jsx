@@ -34,7 +34,7 @@ const THEMES = {
     "--pos-qb": "#7c3aed",
     "--pos-rb": "#0369a1",
     "--pos-wr": "#0f766e",
-    "--pos-te": "#b45309",
+    "--pos-te": "#f59e0b",
     "--pos-k": "#4b5563",
     "--pos-def": "#374151",
   },
@@ -69,7 +69,7 @@ const THEMES = {
     "--pos-qb": "#7c3aed",
     "--pos-rb": "#0369a1",
     "--pos-wr": "#0f766e",
-    "--pos-te": "#b45309",
+    "--pos-te": "#f59e0b",
     "--pos-k": "#6b7280",
     "--pos-def": "#4b5563",
   },
@@ -933,7 +933,7 @@ export default function App() {
           --text-primary: #e6edf3; --text-secondary: #8b949e; --text-muted: #484f58;
           --text-accent: #58a6ff; --text-success: #3fb950; --text-warning: #d29922; --text-danger: #f85149;
           --tab-active-border: #58a6ff;
-          --pos-qb: #7c3aed; --pos-rb: #0369a1; --pos-wr: #0f766e; --pos-te: #b45309; --pos-k: #4b5563; --pos-def: #374151;
+          --pos-qb: #7c3aed; --pos-rb: #0369a1; --pos-wr: #0f766e; --pos-te: #f59e0b; --pos-k: #4b5563; --pos-def: #374151;
         }
         * { box-sizing: border-box; }
         input, textarea, button { font-family: inherit; }
@@ -1098,8 +1098,8 @@ export default function App() {
                         const slot=ROSTER_SLOTS[i],p=roster[i];
                         return (
                           <div key={i} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:1,background:"var(--bg-row)",border:`1px solid var(--border)`,borderRadius:5,padding:"4px 2px",overflow:"hidden"}}>
-                            <span style={{fontSize:11,fontWeight:800,color:POS_COLORS[slot]||"var(--text-muted)",letterSpacing:"0.02em"}}>{slot}</span>
-                            <span style={{fontSize:12,fontWeight:700,color:p?"var(--text-primary)":"var(--text-muted)",maxWidth:"100%",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p?p.name:"—"}</span>
+                            <span style={{fontSize:12,fontWeight:800,color:POS_COLORS[slot]||"var(--text-muted)",letterSpacing:"0.02em"}}>{slot}</span>
+                            <span style={{fontSize:13,fontWeight:700,color:p?"var(--text-primary)":"var(--text-muted)",maxWidth:"100%",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p?p.name:"—"}</span>
                           </div>
                         );
                       })}
