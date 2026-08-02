@@ -633,10 +633,25 @@ export default function App() {
     return byPos;
   }, [available]);
 
+  // How many total picks (across all teams) happen between now and my next turn — snake draft always
+  // gives me exactly one pick per round, so my next turn is always in round+1.
+  const picksUntilNextTurn = useMemo(() => {
+    const nextRound = round+1;
+    const nextSlot = nextRound%2===0 ? teams-draftPos+1 : draftPos;
+    const nextPickNum = (nextRound-1)*teams+nextSlot;
+    return Math.max(1, nextPickNum-pick);
+  }, [round, pick, teams, draftPos]);
+
   // Tier cliff warning: the current (best available) tier for a position is down to its last 1-2 players,
-  // and the next tier is either a real rank gap away or a full tier further out (a tier was drafted through).
+  // the next tier is either a real rank gap away or a full tier further out (a tier was drafted through),
+  // AND — based on how often this position has actually been drafted recently — those last players are
+  // likely to be gone before my next turn comes around. Without that last check, a naturally small elite
+  // tier (e.g. only 2 top TEs) would falsely trigger at pick 1 even though nothing has been drafted yet.
   const cliffAlerts = useMemo(() => {
     const alerts=[];
+    if (recentPicks.length<3) return alerts;
+    const posCounts={};
+    recentPicks.forEach(p=>{posCounts[p]=(posCounts[p]||0)+1;});
     ["QB","RB","WR","TE"].forEach(pos=>{
       const byTier=tiersByPos[pos];
       const tiersPresent=Object.keys(byTier).map(Number).sort((a,b)=>a-b);
@@ -650,12 +665,14 @@ export default function App() {
       const lastRank=currentList[currentList.length-1].rank;
       const nextRank=nextList[0].rank;
       const gap=nextRank-lastRank;
-      if (gap>=6 || (nextTier-currentTier)>=2) {
-        alerts.push({pos, tier:currentTier, count:currentList.length, players:currentList, nextTier, gap});
-      }
+      if (gap<6 && (nextTier-currentTier)<2) return;
+      const posRate=(posCounts[pos]||0)/recentPicks.length;
+      const expectedDraws=posRate*picksUntilNextTurn;
+      if (expectedDraws<currentList.length) return;
+      alerts.push({pos, tier:currentTier, count:currentList.length, players:currentList, nextTier, gap, picksUntilNextTurn});
     });
     return alerts;
-  }, [tiersByPos]);
+  }, [tiersByPos, recentPicks, picksUntilNextTurn]);
 
   // Players who are the sole remaining option in their position's current tier — drives the "LAST IN TIER" row badge.
   const lastInTierIds = useMemo(() => {
@@ -823,7 +840,7 @@ export default function App() {
               <span style={{fontSize:compact?9:10,color:defTextColor(d.label),whiteSpace:"nowrap"}}>Def #{d.rank} {d.label}</span>
             ):(
               <span title={d.shootout?"Weak defense = more offensive volume = good for this player":"Strong defense = fewer shootouts, less offensive volume"} style={{display:"flex",alignItems:"center",gap:4,overflow:"hidden",whiteSpace:"nowrap"}}>
-                <span style={{fontSize:compact?9:10,color:"var(--text-secondary)"}}>#{d.rank}</span>
+                <span style={{fontSize:compact?9:10,color:"var(--text-secondary)",width:compact?16:18,flexShrink:0}}>#{d.rank}</span>
                 {d.shootout?(
                   <span style={{fontSize:compact?8:9,fontWeight:800,padding:"1px 4px",borderRadius:3,background:"var(--bg-success)",color:"var(--text-success)",whiteSpace:"nowrap"}}>🔥{compact?"":" SHOOTOUT"}</span>
                 ):(
@@ -976,7 +993,7 @@ export default function App() {
                         <div>
                           <div style={{fontSize:11,fontWeight:800,color:"var(--text-danger)",letterSpacing:"0.04em",textTransform:"uppercase"}}>Cliff warning</div>
                           <div style={{fontSize:11,color:"var(--text-primary)",marginTop:1}}>
-                            Only {a.count} {tierLabel.toLowerCase()} {a.pos}{a.count>1?"s":""} left ({names}). Next {a.pos} tier is a significant drop.
+                            Only {a.count} {tierLabel.toLowerCase()} {a.pos}{a.count>1?"s":""} left ({names}) — likely gone before your next pick ({a.picksUntilNextTurn} pick{a.picksUntilNextTurn>1?"s":""} away). Next {a.pos} tier is a significant drop.
                           </div>
                         </div>
                       </div>
