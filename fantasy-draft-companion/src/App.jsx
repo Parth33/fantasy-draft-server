@@ -754,11 +754,13 @@ export default function App() {
   const markDrafted = useCallback((player, isMine) => {
     setDraftedIds(prev=>{const n=[...prev];n[league]=[...n[league],player.id];return n;});
     if(isMine) setRosters(prev=>{
+      console.log('ROSTER DEBUG', 'currentCount:', prev[league].filter(p => p !== null).length, 'roster:', JSON.stringify(prev[league].map(p => p ? p.name : null)))
       const currentCount = prev[league].filter(p => p !== null).length;
       if (isMine && currentCount >= 15) return prev;
       const n=[...prev];
       const teamRoster=[...n[league]];
       const idx=assignRosterSlot(teamRoster, player.pos);
+      console.log('SLOT ASSIGNED', 'idx:', idx, 'pos:', player.pos)
       if(idx!==-1) teamRoster[idx]=player;
       n[league]=teamRoster;
       return n;
