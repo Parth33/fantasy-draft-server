@@ -1182,7 +1182,7 @@ export default function App() {
                           <div style={{display:"flex",alignItems:"center",gap:6}}>
                             <span style={{fontSize:10,color:"var(--text-muted)",fontWeight:700}}>#{i+1}</span>
                             <span style={{fontSize:15,fontWeight:800,color:"var(--text-primary)",lineHeight:1.25}}>{p.name}</span>
-                            <span style={{fontSize:9,padding:"2px 5px",borderRadius:4,background:TIER_COLORS[p.tier],color:"#fff",fontWeight:700,flexShrink:0}}>{p.pos}</span>
+                            <span style={{fontSize:9,padding:"2px 5px",borderRadius:4,background:POS_COLORS[p.pos]||"#555",color:"#fff",fontWeight:700,flexShrink:0}}>{p.pos}</span>
                             {p.campAdj!==undefined&&p.campAdj!==0&&<span style={{fontSize:9,fontWeight:700,color:p.campAdj>0?"#0e9f6e":"#e03e3e",flexShrink:0}}>{p.campAdj>0?"▲":"▼"}{Math.abs(p.campAdj)}</span>}
                           </div>
                           <span style={{fontSize:11,fontWeight:700,padding:"3px 9px",borderRadius:"var(--radius)",background:`${safetyColor(p.safety)}26`,color:safetyTextColor(p.safety),width:"fit-content"}}>{p.safety}</span>
@@ -1552,7 +1552,7 @@ function MockTab({teams, draftPos, players, getRecs, getReason}) {
               <span style={{fontSize:9,color:"var(--text-muted)",width:14}}>#{i+1}</span>
               <span style={{fontWeight:500,fontSize:11,flex:1}}>{p.name}</span>
               {p.campAdj!==undefined&&p.campAdj!==0&&<span style={{fontSize:8,color:p.campAdj>0?"#0e9f6e":"#e03e3e"}}>{p.campAdj>0?"▲":"▼"}{Math.abs(p.campAdj)}</span>}
-              <span style={{fontSize:8,padding:"1px 4px",borderRadius:3,background:TIER_COLORS[p.tier],color:"#fff"}}>{p.pos}</span>
+              <span style={{fontSize:8,padding:"1px 4px",borderRadius:3,background:POS_COLORS[p.pos]||"#555",color:"#fff"}}>{p.pos}</span>
               <span style={{fontSize:9,color:"var(--text-secondary)"}}>{p.team}</span>
             </div>
           ))}
