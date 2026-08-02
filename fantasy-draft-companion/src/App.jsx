@@ -518,17 +518,42 @@ Notes:
 
 const LEAGUES = [{id:0,name:"League 1",teams:12},{id:1,name:"League 2",teams:10}];
 
+const LS_KEYS = {
+  players:"fdc_players", drafted:"fdc_drafted", rosters:"fdc_rosters",
+  round:"fdc_round", pick:"fdc_pick", draftPos:"fdc_draftpos", league:"fdc_league",
+  customRankings:"fdc_custom_rankings",
+};
+
+function loadLS(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw == null) return fallback;
+    return JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
+}
+
+function saveLS(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+}
+
 export default function App() {
-  const [league, setLeague] = useState(0);
-  const [draftedIds, setDraftedIds] = useState([[],[]]);
-  const [rosters, setRosters] = useState([[],[]]);
-  const [players, setPlayers] = useState(BASE_PLAYERS);
+  const [league, setLeague] = useState(() => loadLS(LS_KEYS.league, 0));
+  const [draftedIds, setDraftedIds] = useState(() => loadLS(LS_KEYS.drafted, [[],[]]));
+  const [rosters, setRosters] = useState(() => loadLS(LS_KEYS.rosters, [[],[]]));
+  const [players, setPlayers] = useState(() => loadLS(LS_KEYS.players, BASE_PLAYERS));
   const [posFilter, setPosFilter] = useState("ALL");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(null);
-  const [round, setRound] = useState(1);
-  const [pick, setPick] = useState(1);
-  const [draftPos, setDraftPos] = useState(1);
+  const [round, setRound] = useState(() => loadLS(LS_KEYS.round, 1));
+  const [pick, setPick] = useState(() => loadLS(LS_KEYS.pick, 1));
+  const [draftPosByLeague, setDraftPosByLeague] = useState(() => loadLS(LS_KEYS.draftPos, [1,1]));
+  const draftPos = draftPosByLeague[league];
+  const setDraftPos = useCallback((val) => {
+    setDraftPosByLeague(prev => { const n=[...prev]; n[league]=val; return n; });
+  }, [league]);
+  const [hasCustomRankings, setHasCustomRankings] = useState(() => loadLS(LS_KEYS.customRankings, false));
   const [activeTab, setActiveTab] = useState("board");
   const [campText, setCampText] = useState("");
   const [campStatus, setCampStatus] = useState("idle");
@@ -546,6 +571,16 @@ export default function App() {
   useEffect(() => {
     if (sidebarRef.current) sidebarRef.current.scrollTop = 0;
   }, []);
+
+  // Persist draft state + rankings pool to localStorage so a refresh doesn't lose progress.
+  useEffect(() => { saveLS(LS_KEYS.players, players); }, [players]);
+  useEffect(() => { saveLS(LS_KEYS.drafted, draftedIds); }, [draftedIds]);
+  useEffect(() => { saveLS(LS_KEYS.rosters, rosters); }, [rosters]);
+  useEffect(() => { saveLS(LS_KEYS.round, round); }, [round]);
+  useEffect(() => { saveLS(LS_KEYS.pick, pick); }, [pick]);
+  useEffect(() => { saveLS(LS_KEYS.draftPos, draftPosByLeague); }, [draftPosByLeague]);
+  useEffect(() => { saveLS(LS_KEYS.league, league); }, [league]);
+  useEffect(() => { saveLS(LS_KEYS.customRankings, hasCustomRankings); }, [hasCustomRankings]);
 
   useEffect(() => {
     const t = THEMES[theme];
@@ -700,6 +735,37 @@ export default function App() {
     setRecentPicks(prev=>prev.slice(0,-1));
   };
 
+  // Clears drafted/roster/pick progress but keeps the current (possibly imported) player pool.
+  const resetDraft = () => {
+    if (!confirm("Reset the draft? This clears all picks and rosters but keeps your imported rankings.")) return;
+    setDraftedIds([[], []]);
+    setRosters([[], []]);
+    setPick(1);
+    setRound(1);
+    setRecentPicks([]);
+    setSelected(null);
+  };
+
+  // Clears everything, including the player pool, back to defaults.
+  const clearAll = () => {
+    if (!confirm("Clear everything? This resets rankings, picks, and rosters to defaults.")) return;
+    setPlayers(BASE_PLAYERS);
+    setDraftedIds([[], []]);
+    setRosters([[], []]);
+    setPick(1);
+    setRound(1);
+    setDraftPosByLeague([1, 1]);
+    setLeague(0);
+    setRecentPicks([]);
+    setSelected(null);
+    setCampAdjs({});
+    setCampStatus("idle");
+    setCampLastRun(null);
+    setImportError(null);
+    setImportInfo(null);
+    setHasCustomRankings(false);
+  };
+
   const handleImportFiles = async (e) => {
     const fileList = Array.from(e.target.files || []);
     if (!fileList.length) return;
@@ -718,6 +784,7 @@ export default function App() {
       setCampLastRun(null);
       setImportError(null);
       setImportInfo({ count: imported.length, timestamp: new Date(), files: fileSummaries });
+      setHasCustomRankings(true);
     } catch (err) {
       setImportError(err.message || "Failed to import CSV files");
     } finally {
@@ -894,10 +961,17 @@ export default function App() {
           <button onClick={()=>fileInputRef.current?.click()} style={{fontSize:10,padding:"3px 9px",borderRadius:6,border:`1px solid var(--border)`,background:"transparent",cursor:"pointer",color:"var(--text-secondary)"}}>
             ⬆ Import Rankings
           </button>
+          {hasCustomRankings&&(
+            <span title="Custom rankings loaded from CSV import are saved and will persist across refreshes" style={{fontSize:9,display:"flex",alignItems:"center",gap:4,padding:"3px 8px",borderRadius:"var(--radius)",background:"var(--bg-success)",color:"var(--text-success)",fontWeight:500}}>
+              <span style={{width:6,height:6,borderRadius:"50%",background:"var(--text-success)",display:"inline-block"}}/> Rankings saved
+            </span>
+          )}
           <button onClick={()=>setTheme(t=>t==="dark"?"light":"dark")} style={{fontSize:10,padding:"3px 9px",borderRadius:6,border:`1px solid var(--border)`,background:"transparent",cursor:"pointer",color:"var(--text-secondary)",display:"flex",alignItems:"center",gap:4}}>
             {theme==="dark"?"☀ Light":"🌙 Dark"}
           </button>
           <button onClick={undoLast} style={{fontSize:9,padding:"3px 8px",borderRadius:6,border:`1px solid var(--border)`,background:"transparent",cursor:"pointer",color:"var(--text-secondary)"}}>Undo</button>
+          <button onClick={resetDraft} title="Clear all picks and rosters, keep imported rankings" style={{fontSize:9,padding:"3px 8px",borderRadius:6,border:`1px solid var(--text-warning)`,background:"transparent",cursor:"pointer",color:"var(--text-warning)"}}>Reset Draft</button>
+          <button onClick={clearAll} title="Reset everything, including rankings, to defaults" style={{fontSize:9,padding:"3px 8px",borderRadius:6,border:`1px solid var(--text-danger)`,background:"transparent",cursor:"pointer",color:"var(--text-danger)"}}>Clear All</button>
         </div>
       </div>
 
