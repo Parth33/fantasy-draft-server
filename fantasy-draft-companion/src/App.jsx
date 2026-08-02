@@ -1065,21 +1065,21 @@ export default function App() {
               )}
 
               {/* Recs bar + inline roster panel */}
-              <div style={{marginBottom:8,display:"flex",gap:8,alignItems:"flex-start"}}>
+              <div style={{marginBottom:8,display:"flex",gap:8,alignItems:"stretch"}}>
                 {isMyTurn&&recs.length>0&&(
-                  <div style={{background:"var(--bg-accent-soft)",border:`1px solid var(--border-accent)`,borderRadius:8,padding:"5px 10px",width:"fit-content",flexShrink:0,lineHeight:1.3}}>
-                    <div style={{fontSize:9,fontWeight:500,color:"var(--text-accent)",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>Your pick — top recommendations</div>
-                    <div style={{display:"inline-flex",gap:6,flexWrap:"nowrap"}}>
+                  <div style={{background:"var(--bg-accent-soft)",border:`1px solid var(--border-accent)`,borderRadius:8,padding:"10px 14px",width:"fit-content",flexShrink:0,lineHeight:1.3,display:"flex",flexDirection:"column"}}>
+                    <div style={{fontSize:10,fontWeight:600,color:"var(--text-accent)",marginBottom:8,textTransform:"uppercase",letterSpacing:"0.05em"}}>Your pick — top recommendations</div>
+                    <div style={{display:"flex",gap:8,flexWrap:"nowrap",flex:1,alignItems:"stretch"}}>
                       {recs.map((p,i)=>(
-                        <div key={p.id} onClick={()=>setSelected(p)} style={{background:"var(--bg-card)",borderRadius:6,padding:"8px 10px",cursor:"pointer",border:`1px solid var(--border-accent)`,width:236,flexShrink:0}}>
-                          <div style={{display:"flex",alignItems:"center",gap:4}}>
-                            <span style={{fontSize:8,color:"var(--text-muted)"}}>#{i+1}</span>
-                            <span style={{fontSize:12,fontWeight:600,whiteSpace:"nowrap"}}>{p.name}</span>
-                            <span style={{fontSize:8,padding:"1px 3px",borderRadius:3,background:TIER_COLORS[p.tier],color:"#fff"}}>{p.pos}</span>
-                            {p.campAdj!==undefined&&p.campAdj!==0&&<span style={{fontSize:8,color:p.campAdj>0?"#0e9f6e":"#e03e3e"}}>{p.campAdj>0?"▲":"▼"}{Math.abs(p.campAdj)}</span>}
-                            <span style={{fontSize:8,color:safetyColor(p.safety),marginLeft:4,whiteSpace:"nowrap"}}>{p.safety}</span>
+                        <div key={p.id} onClick={()=>setSelected(p)} style={{background:"var(--bg-card)",borderRadius:8,padding:"12px 14px",cursor:"pointer",border:`1px solid var(--border-accent)`,borderLeft:`4px solid ${POS_COLORS[p.pos]||"#555"}`,width:250,flexShrink:0,display:"flex",flexDirection:"column",gap:8}}>
+                          <div style={{display:"flex",alignItems:"center",gap:6}}>
+                            <span style={{fontSize:10,color:"var(--text-muted)",fontWeight:700}}>#{i+1}</span>
+                            <span style={{fontSize:15,fontWeight:800,color:"var(--text-primary)",lineHeight:1.25}}>{p.name}</span>
+                            <span style={{fontSize:9,padding:"2px 5px",borderRadius:4,background:TIER_COLORS[p.tier],color:"#fff",fontWeight:700,flexShrink:0}}>{p.pos}</span>
+                            {p.campAdj!==undefined&&p.campAdj!==0&&<span style={{fontSize:9,fontWeight:700,color:p.campAdj>0?"#0e9f6e":"#e03e3e",flexShrink:0}}>{p.campAdj>0?"▲":"▼"}{Math.abs(p.campAdj)}</span>}
                           </div>
-                          <div style={{fontSize:9,color:"var(--text-secondary)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{getReason(p,roster,round)}</div>
+                          <span style={{fontSize:11,fontWeight:700,padding:"3px 9px",borderRadius:"var(--radius)",background:`${safetyColor(p.safety)}26`,color:safetyColor(p.safety),width:"fit-content"}}>{p.safety}</span>
+                          <div style={{fontSize:11,color:"var(--text-secondary)",lineHeight:1.5,flex:1,display:"-webkit-box",WebkitLineClamp:3,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{getReason(p,roster,round)}</div>
                         </div>
                       ))}
                     </div>
@@ -1087,7 +1087,7 @@ export default function App() {
                 )}
 
                 {/* My roster — two horizontal rows of equal-width slot cards, wraps if too narrow */}
-                <div style={{flex:1,minWidth:0,alignSelf:"flex-start",background:"var(--bg-card)",border:`1px solid var(--border)`,borderRadius:8,padding:"5px 8px",lineHeight:1.3}}>
+                <div style={{flex:1,minWidth:0,background:"var(--bg-card)",border:`1px solid var(--border)`,borderRadius:8,padding:"5px 8px",lineHeight:1.3}}>
                   <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
                     <span style={{fontSize:8,fontWeight:700,color:"var(--text-secondary)",textTransform:"uppercase",letterSpacing:"0.08em"}}>My Roster</span>
                     {byeStackSummary.length>0&&<span style={{fontSize:9,fontWeight:600,color:"var(--text-warning)"}}>Bye stack: {byeStackSummary.join(", ")}</span>}
@@ -1110,13 +1110,13 @@ export default function App() {
 
               {/* Filters */}
               <div style={{display:"flex",gap:6,marginBottom:8,alignItems:"center",flexWrap:"wrap"}}>
-                <input type="text" placeholder="Search..." value={search} onChange={e=>setSearch(e.target.value)} style={{width:140,fontSize:10}}/>
-                <div style={{display:"flex",gap:3}}>
+                <input type="text" placeholder="Search..." value={search} onChange={e=>setSearch(e.target.value)} style={{width:220,fontSize:13,padding:"8px 12px",borderRadius:8,border:"1px solid var(--border)",background:"var(--bg-row)",color:"var(--text-primary)"}}/>
+                <div style={{display:"flex",gap:4}}>
                   {POSITIONS.map(pos=>(
-                    <button key={pos} onClick={()=>setPosFilter(pos)} style={{fontSize:9,padding:"3px 6px",borderRadius:"var(--radius)",border:"0.5px solid var(--border-strong)",background:posFilter===pos?"var(--fill-accent)":"transparent",color:posFilter===pos?"var(--on-accent)":"var(--text-secondary)",cursor:"pointer"}}>{pos}</button>
+                    <button key={pos} onClick={()=>setPosFilter(pos)} style={{fontSize:12,fontWeight:500,padding:"7px 13px",borderRadius:"var(--radius)",border:"0.5px solid var(--border-strong)",background:posFilter===pos?"var(--fill-accent)":"transparent",color:posFilter===pos?"var(--on-accent)":"var(--text-secondary)",cursor:"pointer"}}>{pos}</button>
                   ))}
                 </div>
-                <span style={{fontSize:9,color:"var(--text-muted)"}}>{available.length} available</span>
+                <span style={{fontSize:11,color:"var(--text-muted)"}}>{available.length} available</span>
               </div>
 
               {/* TWO-COLUMN LAYOUT: Overall left, Tiers right */}
@@ -1124,7 +1124,7 @@ export default function App() {
 
                 {/* LEFT: Overall rankings */}
                 <div>
-                  <div style={{fontSize:10,fontWeight:500,color:"var(--text-secondary)",marginBottom:4,paddingBottom:4,borderBottom:"0.5px solid var(--border)"}}>Overall rankings</div>
+                  <div style={{fontSize:13,fontWeight:600,color:"var(--text-primary)",marginBottom:6,paddingBottom:6,borderBottom:"0.5px solid var(--border)"}}>Overall rankings</div>
                   <div style={{border:"1px solid var(--border)",borderRadius:8,overflow:"hidden"}}>
                     <div style={{display:"grid",gridTemplateColumns:ROW_COLS,gap:8,padding:"7px 12px",fontSize:10,fontWeight:700,color:"var(--text-secondary)",textTransform:"uppercase",letterSpacing:"0.04em",background:"var(--bg-card)",borderBottom:"1px solid var(--border)"}}>
                       <span style={{textAlign:"right"}}>#</span><span>Pos</span><span>Player</span><span>Bye</span><span>O-Line</span><span>Defense</span><span>SOS</span><span>Safety</span><span></span>
@@ -1135,7 +1135,7 @@ export default function App() {
 
                 {/* RIGHT: Tier cheat sheet */}
                 <div>
-                  <div style={{fontSize:10,fontWeight:500,color:"var(--text-secondary)",marginBottom:4,paddingBottom:4,borderBottom:"0.5px solid var(--border)"}}>By tier</div>
+                  <div style={{fontSize:13,fontWeight:600,color:"var(--text-primary)",marginBottom:6,paddingBottom:6,borderBottom:"0.5px solid var(--border)"}}>By tier</div>
                   <div style={{display:"grid",gridTemplateColumns:"repeat(4, minmax(0, 1fr))",gap:4}}>
                     {["QB","RB","WR","TE"].map(pos=>{
                       const byTier=tiersByPos[pos]||{};
