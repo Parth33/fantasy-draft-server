@@ -568,6 +568,7 @@ export default function App() {
   const [players, setPlayers] = useState(() => loadLS(LS_KEYS.players, BASE_PLAYERS));
   const [posFilter, setPosFilter] = useState("ALL");
   const [search, setSearch] = useState("");
+  const [showDrafted, setShowDrafted] = useState(false);
   const [selected, setSelected] = useState(null);
   const [round, setRound] = useState(() => loadLS(LS_KEYS.round, 1));
   const [pick, setPick] = useState(() => loadLS(LS_KEYS.pick, 1));
@@ -618,11 +619,11 @@ export default function App() {
 
   const available = useMemo(() => players.filter(p => !drafted.includes(p.id)), [players, drafted]);
 
-  const filtered = useMemo(() => available.filter(p => {
+  const filtered = useMemo(() => (showDrafted ? players : available).filter(p => {
     const pm = posFilter==="ALL" || p.pos===posFilter;
     const sm = !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.team.toLowerCase().includes(search.toLowerCase());
     return pm && sm;
-  }), [available, posFilter, search]);
+  }), [showDrafted, players, available, posFilter, search]);
 
   const sorted = useMemo(() => [...filtered].sort((a,b)=>a.rank-b.rank), [filtered]);
 
@@ -908,13 +909,14 @@ export default function App() {
     const byeConflictCount = byeCountsByPos[`${p.pos}-${p.bye}`] || 0;
     const hasByeConflict = byeConflictCount >= 2;
     const showBadgeRow = isLastInTier || hasByeConflict;
+    const isDrafted = drafted.includes(p.id);
     return (
-      <div onClick={()=>setSelected(p)} className="player-row" style={{background:isSel?"var(--bg-row-sel)":isRec?"var(--bg-row-rec)":zebra,boxShadow:isSel?"inset 0 0 0 1px var(--border-accent)":"none",borderBottom:"1px solid var(--border)",borderLeft:`4px solid ${POS_COLORS[p.pos]||"#555"}`,cursor:"pointer",transition:"background 0.1s, filter 0.1s"}}>
+      <div onClick={()=>setSelected(p)} className="player-row" style={{background:isSel?"var(--bg-row-sel)":isRec?"var(--bg-row-rec)":zebra,boxShadow:isSel?"inset 0 0 0 1px var(--border-accent)":"none",borderBottom:"1px solid var(--border)",borderLeft:`4px solid ${POS_COLORS[p.pos]||"#555"}`,cursor:"pointer",transition:"background 0.1s, filter 0.1s",opacity:isDrafted?0.55:1}}>
         <div style={{display:"grid",gridTemplateColumns:compact?ROW_COLS_COMPACT:ROW_COLS,gap:compact?3:8,alignItems:"center",padding:compact?"6px 6px":"8px 12px",fontSize:compact?11:12}}>
           <span style={{color:"var(--text-secondary)",fontWeight:700,textAlign:"right"}}>{p.rank}</span>
           <span style={{fontSize:compact?9:10,fontWeight:800,padding:"2px 5px",borderRadius:4,background:POS_COLORS[p.pos]||"#555",color:"#fff",textAlign:"center",letterSpacing:"0.04em",border:"1px solid rgba(255,255,255,0.3)"}}>{p.pos}</span>
           <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-            <span style={{fontWeight:700,fontSize:compact?12:13,color:"var(--text-primary)"}}>{p.name}</span>
+            <span style={{fontWeight:700,fontSize:compact?12:13,color:"var(--text-primary)",textDecoration:isDrafted?"line-through":"none"}}>{p.name}</span>
             <span style={{marginLeft:6,fontSize:compact?10:11,fontWeight:500,color:"var(--text-secondary)"}}>{p.team}</span>
             {p.campAdj!==undefined&&p.campAdj!==0&&<span style={{marginLeft:6,fontSize:9,color:p.campAdj>0?"#0e9f6e":"#e03e3e"}}>{p.campAdj>0?"▲":"▼"}{Math.abs(p.campAdj)}</span>}
             {p.ecrVsAdp&&p.ecrVsAdp!=="-"&&<span style={{marginLeft:6,fontSize:compact?10:11,fontWeight:800,color:ecrVsAdpColor(p.ecrVsAdp)}}>{p.ecrVsAdp}</span>}
@@ -937,10 +939,14 @@ export default function App() {
           ):<span/>}
           {s?<span style={{fontSize:compact?9:10,color:sosTextColor(s.e)}}>SOS {s.e}</span>:<span/>}
           <span style={{fontSize:compact?9:10,fontWeight:600,color:safetyColor(p.safety),whiteSpace:"nowrap"}}>{p.safety}</span>
-          <div style={{display:"flex",gap:4}}>
-            <button onClick={e=>{e.stopPropagation();markDrafted(p,true);}} style={{fontSize:9,fontWeight:700,padding:"3px 7px",borderRadius:"var(--radius)",border:"1px solid var(--text-success)",background:"var(--bg-success)",color:"var(--text-success)",cursor:"pointer"}}>Mine</button>
-            <button onClick={e=>{e.stopPropagation();markDrafted(p,false);}} style={{fontSize:9,padding:"3px 6px",borderRadius:"var(--radius)",border:"1px solid var(--border)",background:"transparent",color:"var(--text-secondary)",cursor:"pointer"}}>Gone</button>
-          </div>
+          {isDrafted?(
+            <span style={{fontSize:8,fontWeight:800,padding:"3px 7px",borderRadius:"var(--radius)",border:"1px solid var(--text-muted)",color:"var(--text-muted)",whiteSpace:"nowrap",textAlign:"center",letterSpacing:"0.04em"}}>DRAFTED</span>
+          ):(
+            <div style={{display:"flex",gap:4}}>
+              <button className="btn-mine" onClick={e=>{e.stopPropagation();markDrafted(p,true);}} style={{fontSize:9,fontWeight:700,padding:"3px 7px",borderRadius:"var(--radius)",border:"1px solid var(--border)",background:"transparent",color:"var(--text-secondary)",cursor:"pointer"}}>Mine</button>
+              <button className="btn-gone" onClick={e=>{e.stopPropagation();markDrafted(p,false);}} style={{fontSize:9,padding:"3px 6px",borderRadius:"var(--radius)",border:"1px solid var(--border)",background:"transparent",color:"var(--text-secondary)",cursor:"pointer"}}>Gone</button>
+            </div>
+          )}
         </div>
         {showBadgeRow&&(
           <div style={{display:"flex",gap:6,flexWrap:"wrap",padding:compact?"0 6px 5px 6px":"0 12px 6px 12px"}}>
@@ -975,6 +981,10 @@ export default function App() {
         ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
         .player-row:hover { filter: brightness(1.15); }
+        .btn-mine:hover { background: var(--bg-success); color: var(--text-success); border-color: var(--text-success); }
+        .btn-mine:active { filter: brightness(0.9); }
+        .btn-gone:hover { background: var(--bg-danger); color: var(--text-danger); border-color: var(--text-danger); }
+        .btn-gone:active { filter: brightness(0.9); }
       `}</style>
       {/* Top bar */}
       <div style={{background:"var(--bg-header)",borderBottom:`1px solid var(--border)`,padding:"4px 12px",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
@@ -1125,16 +1135,18 @@ export default function App() {
                     {byeStackSummary.length>0&&<span style={{fontSize:9,fontWeight:600,color:"var(--text-warning)"}}>Bye stack: {byeStackSummary.join(", ")}</span>}
                   </div>
                   {[[0,4,5,1,2,3,6,7,8,9],[10,11,12,13,14]].map((idxRow,ri)=>(
-                    <div key={ri} style={{display:"grid",gridTemplateColumns:`repeat(${idxRow.length},1fr)`,gap:6,marginBottom:ri===0?4:0}}>
-                      {idxRow.map(i=>{
-                        const slot=ROSTER_SLOTS[i],p=roster[i];
-                        return (
-                          <div key={i} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,background:"var(--bg-row)",border:`1px solid var(--border)`,borderRadius:4,padding:"4px 6px",overflow:"hidden"}}>
-                            <span style={{fontSize:13,fontWeight:600,color:POS_COLORS[slot]||"var(--text-muted)",letterSpacing:"0.02em"}}>{slot}</span>
-                            <span style={{fontSize:13,fontWeight:700,color:p?"var(--text-primary)":"var(--text-muted)",width:"100%",textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p?p.name:"—"}</span>
-                          </div>
-                        );
-                      })}
+                    <div key={ri} style={{overflowX:"auto",overflowY:"hidden",marginBottom:ri===0?4:0}}>
+                      <div style={{display:"grid",gridTemplateColumns:`repeat(${idxRow.length},1fr)`,gap:6,minWidth:idxRow.length*76}}>
+                        {idxRow.map(i=>{
+                          const slot=ROSTER_SLOTS[i],p=roster[i];
+                          return (
+                            <div key={i} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,background:"var(--bg-row)",border:`1px solid var(--border)`,borderRadius:4,padding:"4px 6px",overflow:"hidden"}}>
+                              <span style={{fontSize:13,fontWeight:600,color:POS_COLORS[slot]||"var(--text-muted)",letterSpacing:"0.02em"}}>{slot}</span>
+                              <span style={{fontSize:13,fontWeight:700,color:p?"var(--text-primary)":"var(--text-muted)",width:"100%",textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p?p.name:"—"}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1143,6 +1155,7 @@ export default function App() {
               {/* Filters */}
               <div style={{display:"flex",gap:6,marginBottom:8,alignItems:"center",flexWrap:"wrap"}}>
                 <input type="text" placeholder="Search..." value={search} onChange={e=>setSearch(e.target.value)} style={{width:220,fontSize:13,padding:"8px 12px",borderRadius:8,border:"1px solid var(--border)",background:"var(--bg-row)",color:"var(--text-primary)"}}/>
+                <button onClick={()=>setShowDrafted(v=>!v)} style={{fontSize:12,fontWeight:500,padding:"7px 13px",borderRadius:"var(--radius)",border:"0.5px solid var(--border-strong)",background:showDrafted?"var(--fill-accent)":"transparent",color:showDrafted?"var(--on-accent)":"var(--text-secondary)",cursor:"pointer",whiteSpace:"nowrap"}}>{showDrafted?"✓ ":""}Show drafted</button>
                 <div style={{display:"flex",gap:4}}>
                   {POSITIONS.map(pos=>(
                     <button key={pos} onClick={()=>setPosFilter(pos)} style={{fontSize:12,fontWeight:500,padding:"7px 13px",borderRadius:"var(--radius)",border:"0.5px solid var(--border-strong)",background:posFilter===pos?"var(--fill-accent)":"transparent",color:posFilter===pos?"var(--on-accent)":"var(--text-secondary)",cursor:"pointer"}}>{pos}</button>
