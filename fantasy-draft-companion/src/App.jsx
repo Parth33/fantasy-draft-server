@@ -596,6 +596,7 @@ export default function App() {
   const [theme, setTheme] = useState("dark");
   const [importInfo, setImportInfo] = useState(null);
   const [importError, setImportError] = useState(null);
+  const [slotMsg, setSlotMsg] = useState(null);
   const sidebarRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -618,6 +619,12 @@ export default function App() {
     Object.entries(t).forEach(([k,v]) => document.documentElement.style.setProperty(k, v));
     document.documentElement.style.setProperty("color-scheme", theme);
   }, [theme]);
+
+  useEffect(() => {
+    if (!slotMsg) return;
+    const t = setTimeout(() => setSlotMsg(null), 2500);
+    return () => clearTimeout(t);
+  }, [slotMsg]);
 
   const drafted = draftedIds[league];
   const roster = rosters[league];
@@ -752,15 +759,19 @@ export default function App() {
   }, [roster]);
 
   const markDrafted = useCallback((player, isMine) => {
+    if (isMine) {
+      const currentCount = roster.filter(p => p !== null).length;
+      const slotIdx = assignRosterSlot(roster, player.pos);
+      if (currentCount >= 15 || slotIdx === -1) {
+        setSlotMsg(`No slot available for ${player.pos}`);
+        return;
+      }
+    }
     setDraftedIds(prev=>{const n=[...prev];n[league]=[...n[league],player.id];return n;});
     if(isMine) setRosters(prev=>{
-      console.log('ROSTER DEBUG', 'currentCount:', prev[league].filter(p => p !== null).length, 'roster:', JSON.stringify(prev[league].map(p => p ? p.name : null)))
-      const currentCount = prev[league].filter(p => p !== null).length;
-      if (isMine && currentCount >= 15) return prev;
       const n=[...prev];
       const teamRoster=[...n[league]];
       const idx=assignRosterSlot(teamRoster, player.pos);
-      console.log('SLOT ASSIGNED', 'idx:', idx, 'pos:', player.pos)
       if(idx!==-1) teamRoster[idx]=player;
       n[league]=teamRoster;
       return n;
@@ -770,7 +781,7 @@ export default function App() {
     if(inRound===teams) setRound(r=>r+1);
     setPick(p=>p+1);
     setSelected(null);
-  }, [league, pick, teams]);
+  }, [league, pick, teams, roster]);
 
   const undoLast = () => {
     setDraftedIds(prev=>{const n=[...prev];n[league]=n[league].slice(0,-1);return n;});
@@ -922,6 +933,8 @@ export default function App() {
     const showBadgeRow = isLastInTier || hasByeConflict;
     const isDrafted = drafted.includes(p.id);
     const rosterFull = rosterCount >= 15;
+    const noSlot = !rosterFull && assignRosterSlot(roster, p.pos) === -1;
+    const mineBlocked = rosterFull || noSlot;
     const [hoverMine, setHoverMine] = useState(false);
     const [hoverGone, setHoverGone] = useState(false);
     return (
@@ -958,19 +971,19 @@ export default function App() {
           ):(
             <div style={{display:"flex",gap:4}}>
               <button
-                disabled={rosterCount >= 15}
-                onClick={e=>{e.stopPropagation();if(rosterCount>=15)return;markDrafted(p,true);}}
+                disabled={mineBlocked}
+                onClick={e=>{e.stopPropagation();if(mineBlocked)return;markDrafted(p,true);}}
                 onMouseEnter={()=>setHoverMine(true)}
                 onMouseLeave={()=>setHoverMine(false)}
                 style={{
                   fontSize:9,fontWeight:700,padding:"3px 7px",borderRadius:"var(--radius)",
-                  border:`1px solid ${rosterFull?"var(--border)":hoverMine?"var(--text-success)":"var(--border)"}`,
-                  background:rosterFull?"transparent":hoverMine?"var(--bg-success)":"transparent",
-                  color:rosterFull?"var(--text-muted)":hoverMine?"var(--text-success)":"var(--text-secondary)",
-                  cursor:rosterFull?"not-allowed":"pointer",
-                  opacity:rosterFull?0.5:1,
+                  border:`1px solid ${mineBlocked?"var(--border)":hoverMine?"var(--text-success)":"var(--border)"}`,
+                  background:mineBlocked?"transparent":hoverMine?"var(--bg-success)":"transparent",
+                  color:mineBlocked?"var(--text-muted)":hoverMine?"var(--text-success)":"var(--text-secondary)",
+                  cursor:mineBlocked?"not-allowed":"pointer",
+                  opacity:mineBlocked?0.5:1,
                 }}
-                title={rosterFull?"Roster full (15/15)":"Add to my team"}
+                title={rosterFull?"Roster full (15/15)":noSlot?`No slot available for ${p.pos}`:"Add to my team"}
               >My Team</button>
               <button
                 onClick={e=>{e.stopPropagation();markDrafted(p,false);}}
@@ -1021,6 +1034,11 @@ export default function App() {
         ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
         .player-row:hover { filter: brightness(1.15); }
       `}</style>
+      {slotMsg&&(
+        <div style={{position:"fixed",top:12,left:"50%",transform:"translateX(-50%)",zIndex:1000,fontSize:11,fontWeight:600,padding:"8px 16px",borderRadius:"var(--radius)",background:"var(--bg-danger)",color:"var(--text-danger)",border:`1px solid var(--text-danger)`,boxShadow:"0 2px 8px rgba(0,0,0,0.3)"}}>
+          {slotMsg}
+        </div>
+      )}
       {/* Top bar */}
       <div style={{background:"var(--bg-header)",borderBottom:`1px solid var(--border)`,padding:"4px 12px",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
         <span style={{fontWeight:600,fontSize:13,color:"var(--text-accent)",letterSpacing:"-0.01em"}}>⚡ Draft Companion</span>
@@ -1463,10 +1481,10 @@ export default function App() {
 
             <div style={{display:"flex",gap:4}}>
               <button
-                disabled={rosterCount >= 15}
-                onClick={e=>{e.stopPropagation();if(rosterCount>=15)return;markDrafted(selected,true);}}
-                title={rosterCount>=15?"Roster full (15/15)":"Add to my team"}
-                style={{flex:1,fontSize:10,padding:"7px 0",borderRadius:6,border:`2px solid var(--border-accent)`,background:"var(--bg-accent-soft)",color:"var(--text-accent)",cursor:rosterCount>=15?"not-allowed":"pointer",fontWeight:700,opacity:rosterCount>=15?0.5:1}}
+                disabled={rosterCount >= 15 || assignRosterSlot(roster, selected.pos) === -1}
+                onClick={e=>{e.stopPropagation();if(rosterCount>=15||assignRosterSlot(roster,selected.pos)===-1)return;markDrafted(selected,true);}}
+                title={rosterCount>=15?"Roster full (15/15)":assignRosterSlot(roster, selected.pos)===-1?`No slot available for ${selected.pos}`:"Add to my team"}
+                style={{flex:1,fontSize:10,padding:"7px 0",borderRadius:6,border:`2px solid var(--border-accent)`,background:"var(--bg-accent-soft)",color:"var(--text-accent)",cursor:(rosterCount>=15||assignRosterSlot(roster, selected.pos)===-1)?"not-allowed":"pointer",fontWeight:700,opacity:(rosterCount>=15||assignRosterSlot(roster, selected.pos)===-1)?0.5:1}}
               >✓ My pick</button>
               <button onClick={()=>markDrafted(selected,false)} style={{flex:1,fontSize:10,padding:"7px 0",borderRadius:6,border:`1px solid var(--border)`,background:"transparent",color:"var(--text-muted)",cursor:"pointer"}}>✕ Drafted</button>
             </div>
