@@ -1149,10 +1149,10 @@ export default function App() {
                             const cliffTint=ps.length<=2;
                             const label=`Tier ${tier}${tier===1?" - Elite":""}`;
                             return (
-                              <div key={tier} style={{background:cliffTint?"var(--bg-warn)":"transparent",borderTop:ti>0?"1px solid var(--border)":"none"}}>
+                              <div key={tier} style={{borderTop:ti>0?"1px solid var(--border)":"none"}}>
                                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:3,padding:"3px 5px",minWidth:0}}>
                                   <span style={{fontSize:8,fontWeight:800,color:TIER_COLORS[tier]||"#888",textTransform:"uppercase",letterSpacing:"0.03em",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0,flex:1}}>{label}</span>
-                                  {cliffTint&&<span style={{fontSize:8,fontWeight:700,color:"var(--text-warning)",whiteSpace:"nowrap",flexShrink:0}}>{ps.length} left</span>}
+                                  {cliffTint&&<span style={{fontSize:8,fontWeight:800,color:"var(--text-warning)",background:"var(--bg-warn)",border:"1px solid var(--text-warning)",borderRadius:3,padding:"1px 4px",whiteSpace:"nowrap",flexShrink:0,letterSpacing:"0.02em"}}>⚠ {ps.length} left</span>}
                                 </div>
                                 {ps.map(p=>(
                                   <div key={p.id} onClick={()=>setSelected(p)} title={`${p.name} (${p.team})`} style={{display:"flex",alignItems:"baseline",gap:3,padding:"2px 5px",cursor:"pointer",minWidth:0}}>
