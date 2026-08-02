@@ -271,12 +271,22 @@ function sosColor(g) { return (g==="A"||g==="A-"||g==="A+")?"#0e9f6e":(g==="B+"|
 function olineTextColor(l) { return l==="Elite"?"var(--sig-green)":l==="Strong"?"var(--sig-blue)":l==="Average"?"var(--sig-amber)":l==="Below Avg"?"var(--sig-orange)":"var(--sig-red)"; }
 function defTextColor(l) { return (l==="Elite"||l==="Strong")?"var(--sig-red)":l==="Average"?"var(--sig-amber)":"var(--sig-green)"; }
 function sosTextColor(g) { return (g==="A"||g==="A-"||g==="A+")?"var(--sig-green)":(g==="B+"||g==="B")?"var(--sig-blue)":g==="B-"?"var(--sig-amber)":"var(--sig-red)"; }
-function riskColor(r) { return r==="Low"?"#0e9f6e":r==="Slight"?"#1a56db":r==="Medium"?"#c27803":"#9b1c1c"; }
-function safetyColor(s) { return (s==="Very Safe"||s==="Safe")?"#0e9f6e":s==="Solid"?"#1a56db":s==="Okay"?"#c27803":"#9b1c1c"; }
+// Camp analysis returns risk/reward/safety as 1-10 numbers instead of category strings.
+// Bucket them into the same four tiers for all three bars: 1-3 red, 4-6 amber, 7-8 green, 9-10 bright green.
+function scoreTier(v) {
+  if (v <= 3) return { label:"Low Risk", color:"#9b1c1c", textColor:"var(--sig-red)" };
+  if (v <= 6) return { label:"Moderate", color:"#c27803", textColor:"var(--sig-amber)" };
+  if (v <= 8) return { label:"Solid", color:"#0e9f6e", textColor:"var(--sig-green)" };
+  return { label:"Elite", color:"#00c853", textColor:"#00c853" };
+}
+function scoreLabel(v) { return typeof v === "number" ? scoreTier(v).label : v; }
+function riskColor(r) { if (typeof r === "number") return scoreTier(r).color; return r==="Low"?"#0e9f6e":r==="Slight"?"#1a56db":r==="Medium"?"#c27803":"#9b1c1c"; }
+function safetyColor(s) { if (typeof s === "number") return scoreTier(s).color; return (s==="Very Safe"||s==="Safe")?"#0e9f6e":s==="Solid"?"#1a56db":s==="Okay"?"#c27803":"#9b1c1c"; }
 // Theme-aware variant of safetyColor for plain text on card/row backgrounds (badges keep the raw fill above)
-function safetyTextColor(s) { return (s==="Very Safe"||s==="Safe")?"var(--tier-t2)":s==="Solid"?"var(--tier-t1)":s==="Okay"?"var(--tier-t3)":"var(--tier-t4)"; }
-function rewardColor(r) { return r==="High"?"#0e9f6e":r==="Solid"?"#1a56db":"#c27803"; }
+function safetyTextColor(s) { if (typeof s === "number") return scoreTier(s).textColor; return (s==="Very Safe"||s==="Safe")?"var(--tier-t2)":s==="Solid"?"var(--tier-t1)":s==="Okay"?"var(--tier-t3)":"var(--tier-t4)"; }
+function rewardColor(r) { if (typeof r === "number") return scoreTier(r).color; return r==="High"?"#0e9f6e":r==="Solid"?"#1a56db":"#c27803"; }
 function meterWidth(val) {
+  if (typeof val === "number") return Math.max(5, Math.min(100, val*10));
   const map = {"Low":15,"Slight":35,"Medium":60,"High":90,"Very Safe":90,"Safe":72,"Solid":55,"Okay":35,"High reward":90,"Solid reward":65};
   return map[val] || 50;
 }
@@ -567,20 +577,34 @@ function saveLS(key, value) {
 const FP_CACHE_MS = 24 * 60 * 60 * 1000;
 
 function extractNewsItems(newsData) {
-  const items = newsData?.news || newsData?.data || (Array.isArray(newsData) ? newsData : []);
+  const items = newsData?.items || newsData?.news || newsData?.data || (Array.isArray(newsData) ? newsData : []);
   return [...items].sort((a, b) => {
-    const da = new Date(a.date || a.published_at || a.updated || 0).getTime();
-    const db = new Date(b.date || b.published_at || b.updated || 0).getTime();
+    const da = new Date(a.created || a.date || a.published_at || a.updated || 0).getTime();
+    const db = new Date(b.created || b.date || b.published_at || b.updated || 0).getTime();
     return db - da;
   });
+}
+
+// FantasyPros news items don't include a dedicated player-name field — the name
+// is embedded as the leading capitalized run of words in the title, e.g.
+// "Khalil Herbert signs contract with 49ers" -> "Khalil Herbert".
+function extractPlayerNameFromTitle(title) {
+  if (!title) return "";
+  const words = title.trim().split(/\s+/);
+  const nameWords = [];
+  for (const w of words) {
+    if (/^[A-Z]/.test(w)) nameWords.push(w);
+    else break;
+  }
+  return nameWords.join(" ");
 }
 
 function formatFpNews(newsData) {
   const items = extractNewsItems(newsData);
   return items.map(n => {
-    const name = n.player_name || n.name || n.player?.name || "Unknown Player";
-    const team = n.team || n.player?.team || "";
-    const desc = n.description || n.desc || n.title || "";
+    const name = n.player_name || n.name || n.player?.name || extractPlayerNameFromTitle(n.title) || "Unknown Player";
+    const team = n.team_id || n.team || n.player?.team || "";
+    const desc = n.desc || n.description || n.title || "";
     const impact = n.impact || n.analysis || "";
     return `${name}${team ? ` (${team})` : ""}: ${desc}${impact ? `. Impact: ${impact}` : ""}`;
   }).join("\n");
@@ -982,7 +1006,7 @@ export default function App() {
     <div style={{marginBottom:5}}>
       <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
         <span style={{fontSize:9,color:"var(--text-muted)"}}>{label}</span>
-        <span style={{fontSize:9,fontWeight:500,color:colorFn(value)}}>{value}</span>
+        <span style={{fontSize:9,fontWeight:500,color:colorFn(value)}}>{scoreLabel(value)}</span>
       </div>
       <div style={{height:5,borderRadius:3,background:"var(--border)",overflow:"hidden"}}>
         <div style={{width:`${meterWidth(value)}%`,height:"100%",background:colorFn(value),borderRadius:3}}></div>
@@ -1034,7 +1058,7 @@ export default function App() {
             )
           ):<span/>}
           {s?<span style={{fontSize:compact?9:10,color:sosTextColor(s.e)}}>SOS {s.e}</span>:<span/>}
-          <span style={{fontSize:compact?9:10,fontWeight:600,color:safetyTextColor(p.safety),whiteSpace:"nowrap"}}>{p.safety}</span>
+          <span style={{fontSize:compact?9:10,fontWeight:600,color:safetyTextColor(p.safety),whiteSpace:"nowrap"}}>{scoreLabel(p.safety)}</span>
           {isDrafted?(
             <span style={{fontSize:8,fontWeight:800,padding:"3px 7px",borderRadius:"var(--radius)",border:"1px solid var(--text-muted)",color:"var(--text-muted)",whiteSpace:"nowrap",textAlign:"center",letterSpacing:"0.04em"}}>DRAFTED</span>
           ):(
@@ -1242,7 +1266,7 @@ export default function App() {
                             <span style={{fontSize:9,padding:"2px 5px",borderRadius:4,background:POS_COLORS[p.pos]||"#555",color:"#fff",fontWeight:700,flexShrink:0}}>{p.pos}</span>
                             {p.campAdj!==undefined&&p.campAdj!==0&&<span style={{fontSize:9,fontWeight:700,color:p.campAdj>0?"#0e9f6e":"#e03e3e",flexShrink:0}}>{p.campAdj>0?"▲":"▼"}{Math.abs(p.campAdj)}</span>}
                           </div>
-                          <span style={{fontSize:11,fontWeight:700,padding:"3px 9px",borderRadius:"var(--radius)",background:`${safetyColor(p.safety)}26`,color:safetyTextColor(p.safety),width:"fit-content"}}>{p.safety}</span>
+                          <span style={{fontSize:11,fontWeight:700,padding:"3px 9px",borderRadius:"var(--radius)",background:`${safetyColor(p.safety)}26`,color:safetyTextColor(p.safety),width:"fit-content"}}>{scoreLabel(p.safety)}</span>
                           <div style={{fontSize:11,color:"var(--text-secondary)",lineHeight:1.5,flex:1,display:"-webkit-box",WebkitLineClamp:3,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{getReason(p,roster,round)}</div>
                         </div>
                       ))}
@@ -1356,7 +1380,7 @@ export default function App() {
                       {p.campAdj!==undefined&&p.campAdj!==0&&<span style={{fontSize:8,color:p.campAdj>0?"#0e9f6e":"#e03e3e"}}>{p.campAdj>0?"▲":"▼"}{Math.abs(p.campAdj)}</span>}
                       <span style={{fontSize:9,color:"var(--text-secondary)"}}>{p.team}</span>
                       <span style={{fontSize:8,padding:"1px 4px",borderRadius:3,background:TIER_COLORS[p.tier],color:"#fff"}}>T{p.tier}</span>
-                      <span style={{fontSize:9,color:safetyTextColor(p.safety)}}>{p.safety}</span>
+                      <span style={{fontSize:9,color:safetyTextColor(p.safety)}}>{scoreLabel(p.safety)}</span>
                       <span style={{fontSize:9,color:"var(--text-muted)"}}>Bye {p.bye}</span>
                       {SOS[p.team]&&<span style={{fontSize:8,color:sosTextColor(SOS[p.team].e)}}>SOS {SOS[p.team].e}</span>}
                     </>:<span style={{fontSize:10,color:"var(--text-muted)",fontStyle:"italic"}}>Empty</span>}
@@ -1450,7 +1474,7 @@ export default function App() {
                         <span style={{fontWeight:500,width:150,flexShrink:0}}>{name}</span>
                         <span style={{color:a.adj>0?"#0e9f6e":a.adj<0?"#e03e3e":"var(--text-muted)",fontWeight:500,width:56,flexShrink:0}}>{a.adj>0?`+${a.adj}`:a.adj} spots</span>
                         <span style={{color:"var(--text-secondary)",flex:1}}>{a.summary}</span>
-                        <span style={{fontSize:8,padding:"1px 5px",borderRadius:3,background:safetyColor(a.safety||"Solid"),color:"#fff"}}>{a.safety}</span>
+                        <span style={{fontSize:8,padding:"1px 5px",borderRadius:3,background:safetyColor(a.safety||"Solid"),color:"#fff"}}>{scoreLabel(a.safety)}</span>
                       </div>
                     ))}
                   </div>
@@ -1491,7 +1515,7 @@ export default function App() {
             {/* Safety Meter */}
             <div style={{background:"var(--bg-row)",borderRadius:6,padding:"10px 12px",marginBottom:8,border:`1px solid var(--border)`}}>
               <div style={{fontSize:9,fontWeight:700,color:"var(--text-secondary)",marginBottom:8,textTransform:"uppercase",letterSpacing:"0.06em"}}>Safety meter</div>
-              <MeterBar label="Risk" value={selected.risk} colorFn={v=>v==="Low"?"#0e9f6e":v==="Slight"?"#1a56db":v==="Medium"?"#c27803":"#9b1c1c"}/>
+              <MeterBar label="Risk" value={selected.risk} colorFn={riskColor}/>
               <MeterBar label="Reward" value={selected.reward} colorFn={rewardColor}/>
               <MeterBar label="Safety" value={selected.safety} colorFn={safetyColor}/>
             </div>
