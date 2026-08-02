@@ -968,8 +968,11 @@ export default function App() {
             ):(
               <span title={d.shootout?"Weak defense = more offensive volume = good for this player":"Strong defense = fewer shootouts, less offensive volume"} style={{display:"flex",alignItems:"center",gap:4,overflow:"hidden",whiteSpace:"nowrap"}}>
                 <span style={{fontWeight:700,fontSize:compact?9:10,whiteSpace:"nowrap"}}>#{d.rank}</span>
-                <span style={{fontSize:12,color:"var(--text-secondary)",fontWeight:400,marginLeft:4,whiteSpace:"nowrap"}}>{d.label}</span>
-                {d.shootout&&<span style={{fontSize:compact?8:9,fontWeight:800,padding:"1px 4px",borderRadius:3,background:"var(--bg-success)",color:"var(--text-success)",whiteSpace:"nowrap"}}>🔥{compact?"":" SHOOTOUT"}</span>}
+                {d.shootout?(
+                  <span style={{fontSize:compact?8:9,fontWeight:800,padding:"1px 4px",borderRadius:3,background:"var(--bg-success)",color:"var(--text-success)",whiteSpace:"nowrap"}}>🔥{compact?"":" SHOOTOUT"}</span>
+                ):(
+                  <span style={{fontSize:compact?9:10,color:defTextColor(d.label),whiteSpace:"nowrap"}}>{d.label}</span>
+                )}
               </span>
             )
           ):<span/>}
