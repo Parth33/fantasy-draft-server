@@ -621,7 +621,7 @@ export default function App() {
 
   const drafted = draftedIds[league];
   const roster = rosters[league];
-  const rosterCount = useMemo(() => roster.filter(Boolean).length, [roster]);
+  const rosterCount = useMemo(() => roster.filter(p => p !== null).length, [roster]);
   const teams = LEAGUES[league].teams;
 
   const available = useMemo(() => players.filter(p => !drafted.includes(p.id)), [players, drafted]);
@@ -752,7 +752,7 @@ export default function App() {
   }, [roster]);
 
   const markDrafted = useCallback((player, isMine) => {
-    if (isMine && rosterCount >= 15) return;
+    if (isMine && roster.filter(p => p !== null).length >= 15) return;
     setDraftedIds(prev=>{const n=[...prev];n[league]=[...n[league],player.id];return n;});
     if(isMine) setRosters(prev=>{
       const n=[...prev];
@@ -955,7 +955,7 @@ export default function App() {
           ):(
             <div style={{display:"flex",gap:4}}>
               <button
-                disabled={rosterFull}
+                disabled={rosterCount >= 15}
                 onClick={e=>{e.stopPropagation();markDrafted(p,true);}}
                 onMouseEnter={()=>setHoverMine(true)}
                 onMouseLeave={()=>setHoverMine(false)}
