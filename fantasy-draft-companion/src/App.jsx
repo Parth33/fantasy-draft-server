@@ -1460,7 +1460,12 @@ export default function App() {
             })()}
 
             <div style={{display:"flex",gap:4}}>
-              <button onClick={()=>markDrafted(selected,true)} style={{flex:1,fontSize:10,padding:"7px 0",borderRadius:6,border:`2px solid var(--border-accent)`,background:"var(--bg-accent-soft)",color:"var(--text-accent)",cursor:"pointer",fontWeight:700}}>✓ My pick</button>
+              <button
+                disabled={rosterCount >= 15}
+                onClick={()=>markDrafted(selected,true)}
+                title={rosterCount>=15?"Roster full (15/15)":"Add to my team"}
+                style={{flex:1,fontSize:10,padding:"7px 0",borderRadius:6,border:`2px solid var(--border-accent)`,background:"var(--bg-accent-soft)",color:"var(--text-accent)",cursor:rosterCount>=15?"not-allowed":"pointer",fontWeight:700,opacity:rosterCount>=15?0.5:1}}
+              >✓ My pick</button>
               <button onClick={()=>markDrafted(selected,false)} style={{flex:1,fontSize:10,padding:"7px 0",borderRadius:6,border:`1px solid var(--border)`,background:"transparent",color:"var(--text-muted)",cursor:"pointer"}}>✕ Drafted</button>
             </div>
           </div>
