@@ -230,6 +230,19 @@ const BASE_PLAYERS = [
 
 const ROSTER_SLOTS = ["QB","WR","WR","WR","RB","RB","TE","FLEX","K","DEF","BN","BN","BN","BN","BN"];
 
+// Finds the index a drafted player should occupy in a fixed-length (15) roster array:
+// exact position slot first, then FLEX for RB/WR/TE, then the first open bench slot.
+function assignRosterSlot(roster, pos) {
+  let idx = ROSTER_SLOTS.findIndex((slot,i)=>slot===pos&&!roster[i]);
+  if (idx===-1 && (pos==="RB"||pos==="WR"||pos==="TE")) {
+    idx = ROSTER_SLOTS.findIndex((slot,i)=>slot==="FLEX"&&!roster[i]);
+  }
+  if (idx===-1) {
+    idx = ROSTER_SLOTS.findIndex((slot,i)=>slot==="BN"&&!roster[i]);
+  }
+  return idx;
+}
+
 function olineGrade(team, pos) {
   const g = OLINE[team]; if (!g) return {score:70,label:"Average"};
   return pos === "RB" ? {score:g.run,label:g.label} : {score:g.pass,label:g.label};
@@ -465,7 +478,7 @@ function buildImportedPlayerPool(files) {
 
 function getRecs(available, roster, round) {
   const counts = {QB:0,RB:0,WR:0,TE:0,K:0,DEF:0};
-  roster.forEach(p => { if(counts[p.pos]!==undefined) counts[p.pos]++; });
+  roster.forEach(p => { if(p&&counts[p.pos]!==undefined) counts[p.pos]++; });
   return available.map(p => {
     let score = (150 - p.rank) * 2;
     const ol = olineGrade(p.team, p.pos);
@@ -493,7 +506,7 @@ function getRecs(available, roster, round) {
 }
 
 function getReason(p, roster, round) {
-  const counts={QB:0,RB:0,WR:0,TE:0}; roster.forEach(r=>{if(counts[r.pos]!==undefined)counts[r.pos]++;});
+  const counts={QB:0,RB:0,WR:0,TE:0}; roster.forEach(r=>{if(r&&counts[r.pos]!==undefined)counts[r.pos]++;});
   const ol=olineGrade(p.team,p.pos); const d=DEF[p.team]; const s=SOS[p.team];
   const parts=[];
   if (p.campAdj>0) parts.push("Camp trending up");
@@ -551,7 +564,7 @@ function saveLS(key, value) {
 export default function App() {
   const [league, setLeague] = useState(() => loadLS(LS_KEYS.league, 0));
   const [draftedIds, setDraftedIds] = useState(() => loadLS(LS_KEYS.drafted, [[],[]]));
-  const [rosters, setRosters] = useState(() => loadLS(LS_KEYS.rosters, [[],[]]));
+  const [rosters, setRosters] = useState(() => loadLS(LS_KEYS.rosters, [Array(15).fill(null), Array(15).fill(null)]));
   const [players, setPlayers] = useState(() => loadLS(LS_KEYS.players, BASE_PLAYERS));
   const [posFilter, setPosFilter] = useState("ALL");
   const [search, setSearch] = useState("");
@@ -600,6 +613,7 @@ export default function App() {
 
   const drafted = draftedIds[league];
   const roster = rosters[league];
+  const rosterCount = useMemo(() => roster.filter(Boolean).length, [roster]);
   const teams = LEAGUES[league].teams;
 
   const available = useMemo(() => players.filter(p => !drafted.includes(p.id)), [players, drafted]);
@@ -719,19 +733,26 @@ export default function App() {
   // Bye week tracking on my roster — per-position counts drive the "BYE CONFLICT" flag, overall counts drive the stack summary.
   const byeCountsByPos = useMemo(() => {
     const m={};
-    roster.forEach(p=>{ const k=`${p.pos}-${p.bye}`; m[k]=(m[k]||0)+1; });
+    roster.forEach(p=>{ if(!p) return; const k=`${p.pos}-${p.bye}`; m[k]=(m[k]||0)+1; });
     return m;
   }, [roster]);
 
   const byeStackSummary = useMemo(() => {
     const m={};
-    roster.forEach(p=>{ m[p.bye]=(m[p.bye]||0)+1; });
+    roster.forEach(p=>{ if(!p) return; m[p.bye]=(m[p.bye]||0)+1; });
     return Object.entries(m).filter(([wk,c])=>c>=2).sort((a,b)=>b[1]-a[1]).map(([wk,c])=>`Wk${wk} x${c}`);
   }, [roster]);
 
   const markDrafted = useCallback((player, isMine) => {
     setDraftedIds(prev=>{const n=[...prev];n[league]=[...n[league],player.id];return n;});
-    if(isMine) setRosters(prev=>{const n=[...prev];n[league]=[...n[league],player];return n;});
+    if(isMine) setRosters(prev=>{
+      const n=[...prev];
+      const teamRoster=[...n[league]];
+      const idx=assignRosterSlot(teamRoster, player.pos);
+      if(idx!==-1) teamRoster[idx]=player;
+      n[league]=teamRoster;
+      return n;
+    });
     setRecentPicks(prev=>[...prev.slice(-9), player.pos]);
     const inRound=((pick-1)%teams)+1;
     if(inRound===teams) setRound(r=>r+1);
@@ -749,7 +770,7 @@ export default function App() {
   const resetDraft = () => {
     if (!confirm("Reset the draft? This clears all picks and rosters but keeps your imported rankings.")) return;
     setDraftedIds([[], []]);
-    setRosters([[], []]);
+    setRosters([Array(15).fill(null), Array(15).fill(null)]);
     setPick(1);
     setRound(1);
     setRecentPicks([]);
@@ -761,7 +782,7 @@ export default function App() {
     if (!confirm("Clear everything? This resets rankings, picks, and rosters to defaults.")) return;
     setPlayers(BASE_PLAYERS);
     setDraftedIds([[], []]);
-    setRosters([[], []]);
+    setRosters([Array(15).fill(null), Array(15).fill(null)]);
     setPick(1);
     setRound(1);
     setDraftPosByLeague([1, 1]);
@@ -784,7 +805,7 @@ export default function App() {
       const { players: imported, fileSummaries } = buildImportedPlayerPool(files);
       setPlayers(imported);
       setDraftedIds([[], []]);
-      setRosters([[], []]);
+      setRosters([Array(15).fill(null), Array(15).fill(null)]);
       setPick(1);
       setRound(1);
       setRecentPicks([]);
@@ -988,7 +1009,7 @@ export default function App() {
 
       {/* Tabs */}
       <div style={{display:"flex",borderBottom:`1px solid var(--border)`,background:"var(--bg-header)",padding:"0 12px"}}>
-        {[{k:"board",l:"Draft Board"},{k:"roster",l:`Roster (${roster.length})`},{k:"odef",l:"O-Line / Defense"},{k:"camp",l:"Camp Intel"},{k:"mock",l:"Mock Draft"}].map(t=>(
+        {[{k:"board",l:"Draft Board"},{k:"roster",l:`Roster (${rosterCount})`},{k:"odef",l:"O-Line / Defense"},{k:"camp",l:"Camp Intel"},{k:"mock",l:"Mock Draft"}].map(t=>(
           <button key={t.k} onClick={()=>setActiveTab(t.k)} style={{padding:"6px 12px",fontSize:11,border:"none",borderBottom:activeTab===t.k?`2px solid var(--tab-active-border)`:"2px solid transparent",background:"transparent",cursor:"pointer",color:activeTab===t.k?"var(--text-accent)":"var(--text-secondary)",fontWeight:activeTab===t.k?600:400,letterSpacing:"0.01em"}}>{t.l}</button>
         ))}
         {campStatus==="done"&&<span style={{fontSize:9,padding:"2px 7px",borderRadius:"var(--radius)",background:"var(--bg-success)",color:"var(--text-success)",alignSelf:"center",marginLeft:4}}>Camp applied</span>}
@@ -1077,7 +1098,7 @@ export default function App() {
 
               {/* Recs bar + inline roster panel */}
               <div style={{marginBottom:8,display:"flex",gap:8,alignItems:"stretch"}}>
-                {available.length>0&&roster.length<15&&recs.length>0&&(
+                {available.length>0&&rosterCount<15&&recs.length>0&&(
                   <div style={{background:"var(--bg-accent-soft)",border:`1px solid var(--border-accent)`,borderRadius:8,padding:"10px 14px",width:"fit-content",flexShrink:0,lineHeight:1.3,display:"flex",flexDirection:"column"}}>
                     <div style={{fontSize:10,fontWeight:600,color:"var(--text-accent)",marginBottom:8,textTransform:"uppercase",letterSpacing:"0.05em"}}>Your pick — top recommendations</div>
                     <div style={{display:"flex",gap:8,flexWrap:"nowrap",flex:1,alignItems:"stretch"}}>
@@ -1188,7 +1209,7 @@ export default function App() {
             <div>
               <div style={{marginBottom:10,display:"flex",alignItems:"center",gap:8}}>
                 <span style={{fontSize:13,fontWeight:500}}>My roster</span>
-                <span style={{fontSize:11,color:"var(--text-secondary)"}}>{roster.length}/15</span>
+                <span style={{fontSize:11,color:"var(--text-secondary)"}}>{rosterCount}/15</span>
                 {byeStackSummary.length>0&&<span style={{fontSize:10,fontWeight:600,padding:"2px 7px",borderRadius:"var(--radius)",background:"var(--bg-warn)",color:"var(--text-warning)",border:"1px solid var(--text-warning)"}}>Bye stack: {byeStackSummary.join(", ")}</span>}
               </div>
               {ROSTER_SLOTS.map((slot,i)=>{
