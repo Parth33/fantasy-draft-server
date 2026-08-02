@@ -1073,11 +1073,11 @@ export default function App() {
                           {tierNums.map((tier,ti)=>{
                             const ps=byTier[tier];
                             const cliffTint=ps.length<=2;
-                            const label=(TIER_LABELS[pos]||TIER_LABELS.WR)[tier]||`Tier ${tier}`;
+                            const label=`Tier ${tier}${tier===1?" - Elite":""}`;
                             return (
                               <div key={tier} style={{background:cliffTint?"var(--bg-warn)":"transparent",borderTop:ti>0?"1px solid var(--border)":"none"}}>
                                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:3,padding:"3px 5px",minWidth:0}}>
-                                  <span style={{fontSize:8,fontWeight:800,color:TIER_COLORS[tier]||"#888",textTransform:"uppercase",letterSpacing:"0.03em",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0,flex:1}}>T{tier} {label}</span>
+                                  <span style={{fontSize:8,fontWeight:800,color:TIER_COLORS[tier]||"#888",textTransform:"uppercase",letterSpacing:"0.03em",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0,flex:1}}>{label}</span>
                                   {cliffTint&&<span style={{fontSize:8,fontWeight:700,color:"var(--text-warning)",whiteSpace:"nowrap",flexShrink:0}}>{ps.length} left</span>}
                                 </div>
                                 {ps.map(p=>(
