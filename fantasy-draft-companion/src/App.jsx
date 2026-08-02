@@ -243,6 +243,13 @@ function assignRosterSlot(roster, pos) {
   return idx;
 }
 
+// "Josh Allen" -> "J. Allen", "Christian McCaffrey" -> "C. McCaffrey"
+function formatRosterName(fullName) {
+  const parts = fullName.trim().split(" ");
+  if (parts.length < 2) return fullName;
+  return `${parts[0][0].toUpperCase()}. ${parts[parts.length-1]}`;
+}
+
 function olineGrade(team, pos) {
   const g = OLINE[team]; if (!g) return {score:70,label:"Average"};
   return pos === "RB" ? {score:g.run,label:g.label} : {score:g.pass,label:g.label};
@@ -745,6 +752,7 @@ export default function App() {
   }, [roster]);
 
   const markDrafted = useCallback((player, isMine) => {
+    if (isMine && rosterCount >= 15) return;
     setDraftedIds(prev=>{const n=[...prev];n[league]=[...n[league],player.id];return n;});
     if(isMine) setRosters(prev=>{
       const n=[...prev];
@@ -759,7 +767,7 @@ export default function App() {
     if(inRound===teams) setRound(r=>r+1);
     setPick(p=>p+1);
     setSelected(null);
-  }, [league, pick, teams]);
+  }, [league, pick, teams, rosterCount]);
 
   const undoLast = () => {
     setDraftedIds(prev=>{const n=[...prev];n[league]=n[league].slice(0,-1);return n;});
@@ -910,6 +918,9 @@ export default function App() {
     const hasByeConflict = byeConflictCount >= 2;
     const showBadgeRow = isLastInTier || hasByeConflict;
     const isDrafted = drafted.includes(p.id);
+    const rosterFull = rosterCount >= 15;
+    const [hoverMine, setHoverMine] = useState(false);
+    const [hoverGone, setHoverGone] = useState(false);
     return (
       <div onClick={()=>setSelected(p)} className="player-row" style={{background:isSel?"var(--bg-row-sel)":isRec?"var(--bg-row-rec)":zebra,boxShadow:isSel?"inset 0 0 0 1px var(--border-accent)":"none",borderBottom:"1px solid var(--border)",borderLeft:`4px solid ${POS_COLORS[p.pos]||"#555"}`,cursor:"pointer",transition:"background 0.1s, filter 0.1s",opacity:isDrafted?0.55:1}}>
         <div style={{display:"grid",gridTemplateColumns:compact?ROW_COLS_COMPACT:ROW_COLS,gap:compact?3:8,alignItems:"center",padding:compact?"6px 6px":"8px 12px",fontSize:compact?11:12}}>
@@ -943,8 +954,33 @@ export default function App() {
             <span style={{fontSize:8,fontWeight:800,padding:"3px 7px",borderRadius:"var(--radius)",border:"1px solid var(--text-muted)",color:"var(--text-muted)",whiteSpace:"nowrap",textAlign:"center",letterSpacing:"0.04em"}}>DRAFTED</span>
           ):(
             <div style={{display:"flex",gap:4}}>
-              <button className="btn-mine" onClick={e=>{e.stopPropagation();markDrafted(p,true);}} style={{fontSize:9,fontWeight:700,padding:"3px 7px",borderRadius:"var(--radius)",border:"1px solid var(--border)",background:"transparent",color:"var(--text-secondary)",cursor:"pointer"}}>My Team</button>
-              <button className="btn-gone" onClick={e=>{e.stopPropagation();markDrafted(p,false);}} style={{fontSize:9,padding:"3px 6px",borderRadius:"var(--radius)",border:"1px solid var(--border)",background:"transparent",color:"var(--text-secondary)",cursor:"pointer"}}>Drafted</button>
+              <button
+                disabled={rosterFull}
+                onClick={e=>{e.stopPropagation();markDrafted(p,true);}}
+                onMouseEnter={()=>setHoverMine(true)}
+                onMouseLeave={()=>setHoverMine(false)}
+                style={{
+                  fontSize:9,fontWeight:700,padding:"3px 7px",borderRadius:"var(--radius)",
+                  border:`1px solid ${rosterFull?"var(--border)":hoverMine?"var(--text-success)":"var(--border)"}`,
+                  background:rosterFull?"transparent":hoverMine?"var(--bg-success)":"transparent",
+                  color:rosterFull?"var(--text-muted)":hoverMine?"var(--text-success)":"var(--text-secondary)",
+                  cursor:rosterFull?"not-allowed":"pointer",
+                  opacity:rosterFull?0.5:1,
+                }}
+                title={rosterFull?"Roster full (15/15)":"Add to my team"}
+              >My Team</button>
+              <button
+                onClick={e=>{e.stopPropagation();markDrafted(p,false);}}
+                onMouseEnter={()=>setHoverGone(true)}
+                onMouseLeave={()=>setHoverGone(false)}
+                style={{
+                  fontSize:9,padding:"3px 6px",borderRadius:"var(--radius)",
+                  border:`1px solid ${hoverGone?"var(--text-secondary)":"var(--border)"}`,
+                  background:hoverGone?"var(--bg-row-hover)":"transparent",
+                  color:hoverGone?"var(--text-primary)":"var(--text-secondary)",
+                  cursor:"pointer",
+                }}
+              >Drafted</button>
             </div>
           )}
         </div>
@@ -981,10 +1017,6 @@ export default function App() {
         ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
         .player-row:hover { filter: brightness(1.15); }
-        .btn-mine:hover { background: var(--bg-success); color: var(--text-success); border-color: var(--text-success); }
-        .btn-mine:active { filter: brightness(0.9); }
-        .btn-gone:hover { background: var(--bg-danger); color: var(--text-danger); border-color: var(--text-danger); }
-        .btn-gone:active { filter: brightness(0.9); }
       `}</style>
       {/* Top bar */}
       <div style={{background:"var(--bg-header)",borderBottom:`1px solid var(--border)`,padding:"4px 12px",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
@@ -1128,24 +1160,26 @@ export default function App() {
                   </div>
                 )}
 
-                {/* My roster — one 10-column grid; the 5 bench slots wrap to a second row at the same card width */}
+                {/* My roster — starters row (8 slots) and K/DEF+bench row (7 slots), each filling width evenly */}
                 <div style={{flex:1,minWidth:0,background:"var(--bg-card)",border:`1px solid var(--border)`,borderRadius:8,padding:"10px 12px",display:"flex",flexDirection:"column",gap:8}}>
                   <div style={{display:"flex",alignItems:"center",gap:8}}>
                     <span style={{fontSize:10,fontWeight:700,color:"var(--text-secondary)",textTransform:"uppercase",letterSpacing:"0.08em"}}>My Roster</span>
                     {byeStackSummary.length>0&&<span style={{fontSize:9,fontWeight:600,color:"var(--text-warning)"}}>Bye stack: {byeStackSummary.join(", ")}</span>}
                   </div>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(10, minmax(0, 1fr))",gap:4}}>
-                    {[0,4,5,1,2,3,6,7,8,9,10,11,12,13,14].map(i=>{
-                      const slot=ROSTER_SLOTS[i],p=roster[i];
-                      const lastName = p ? p.name.trim().split(" ").pop() : null;
-                      return (
-                        <div key={i} style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,minWidth:0,background:"var(--bg-row)",border:`1px solid var(--border)`,borderRadius:6,padding:"8px 3px"}}>
-                          <span style={{fontSize:14,fontWeight:700,color:POS_COLORS[slot]||"var(--text-muted)",letterSpacing:"0.01em"}}>{slot}</span>
-                          <span style={{fontSize:11,fontWeight:600,color:p?"var(--text-primary)":"var(--text-muted)",textAlign:"center",lineHeight:1.15,overflowWrap:"break-word",wordBreak:"normal",hyphens:"auto",maxWidth:"100%"}}>{lastName||"—"}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  {[[0,4,5,1,2,3,6,7],[8,9,10,11,12,13,14]].map((idxRow,ri)=>(
+                    <div key={ri} style={{display:"grid",gridTemplateColumns:`repeat(${idxRow.length}, minmax(0, 1fr))`,gap:4}}>
+                      {idxRow.map(i=>{
+                        const slot=ROSTER_SLOTS[i],p=roster[i];
+                        const displayName = p ? formatRosterName(p.name) : null;
+                        return (
+                          <div key={i} style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,minWidth:0,background:"var(--bg-row)",border:`1px solid var(--border)`,borderRadius:6,padding:"8px 3px"}}>
+                            <span style={{fontSize:14,fontWeight:700,color:POS_COLORS[slot]||"var(--text-muted)",letterSpacing:"0.01em"}}>{slot}</span>
+                            <span style={{fontSize:11,fontWeight:600,color:p?"var(--text-primary)":"var(--text-muted)",textAlign:"center",lineHeight:1.15,overflowWrap:"break-word",wordBreak:"normal",hyphens:"auto",maxWidth:"100%"}}>{displayName||"—"}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
                 </div>
               </div>
 
