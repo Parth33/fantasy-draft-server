@@ -957,7 +957,7 @@ export default function App() {
             <div style={{display:"flex",gap:4}}>
               <button
                 disabled={rosterCount >= 15}
-                onClick={e=>{e.stopPropagation();markDrafted(p,true);}}
+                onClick={e=>{e.stopPropagation();if(rosterCount>=15)return;markDrafted(p,true);}}
                 onMouseEnter={()=>setHoverMine(true)}
                 onMouseLeave={()=>setHoverMine(false)}
                 style={{
@@ -1462,7 +1462,7 @@ export default function App() {
             <div style={{display:"flex",gap:4}}>
               <button
                 disabled={rosterCount >= 15}
-                onClick={()=>markDrafted(selected,true)}
+                onClick={e=>{e.stopPropagation();if(rosterCount>=15)return;markDrafted(selected,true);}}
                 title={rosterCount>=15?"Roster full (15/15)":"Add to my team"}
                 style={{flex:1,fontSize:10,padding:"7px 0",borderRadius:6,border:`2px solid var(--border-accent)`,background:"var(--bg-accent-soft)",color:"var(--text-accent)",cursor:rosterCount>=15?"not-allowed":"pointer",fontWeight:700,opacity:rosterCount>=15?0.5:1}}
               >✓ My pick</button>
