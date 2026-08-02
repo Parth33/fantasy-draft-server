@@ -602,6 +602,28 @@ function formatFpNews(newsData) {
   }).join("\n");
 }
 
+function extractInjuryItems(injuriesData) {
+  return injuriesData?.injuries || injuriesData?.data || (Array.isArray(injuriesData) ? injuriesData : []);
+}
+
+function formatFpInjuries(injuriesData) {
+  const items = extractInjuryItems(injuriesData);
+  return items.map(inj => {
+    const name = inj.name || inj.player_name || inj.player?.name || "Unknown Player";
+    const team = inj.team || inj.player?.team || "";
+    const posId = inj.position_id || inj.position || inj.pos || "";
+    const statusShort = inj.status_short || inj.status || "";
+    const injuryType = inj.injury_type || inj.type || "no details";
+    return `${name} (${team}, ${posId}): ${statusShort} - ${injuryType}`;
+  }).join("\n");
+}
+
+function formatCampIntel(newsData, injuriesData) {
+  const newsText = formatFpNews(newsData);
+  const injuriesText = formatFpInjuries(injuriesData);
+  return [newsText, injuriesText].filter(Boolean).join("\n\n");
+}
+
 export default function App() {
   const [league, setLeague] = useState(() => loadLS(LS_KEYS.league, 0));
   const [draftedIds, setDraftedIds] = useState(() => loadLS(LS_KEYS.drafted, [[],[]]));
@@ -890,12 +912,14 @@ export default function App() {
       ]);
       const newsData = await newsRes.json();
       const injuriesData = await injuriesRes.json();
+      console.log("FantasyPros news response:", newsData);
+      console.log("FantasyPros injuries response:", injuriesData);
       const ts = Date.now();
       localStorage.setItem("fp_news_cache", JSON.stringify(newsData));
       localStorage.setItem("fp_injuries_cache", JSON.stringify(injuriesData));
       localStorage.setItem("fp_cache_timestamp", String(ts));
       setFpLastUpdated(ts);
-      setCampText(formatFpNews(newsData));
+      setCampText(formatCampIntel(newsData, injuriesData));
       setFetchStatus("done");
     } catch (e) {
       setFetchStatus("error");
@@ -905,9 +929,14 @@ export default function App() {
   useEffect(() => {
     const ts = Number(localStorage.getItem("fp_cache_timestamp"));
     const cachedNews = localStorage.getItem("fp_news_cache");
+    const cachedInjuries = localStorage.getItem("fp_injuries_cache");
     if (ts && cachedNews && Date.now() - ts < FP_CACHE_MS) {
       try {
-        setCampText(formatFpNews(JSON.parse(cachedNews)));
+        const newsData = JSON.parse(cachedNews);
+        const injuriesData = cachedInjuries ? JSON.parse(cachedInjuries) : null;
+        console.log("FantasyPros news (cached):", newsData);
+        console.log("FantasyPros injuries (cached):", injuriesData);
+        setCampText(formatCampIntel(newsData, injuriesData));
         setFpLastUpdated(ts);
       } catch {
         fetchFantasyProsData();
@@ -926,7 +955,11 @@ export default function App() {
   };
 
   const runCampAnalysis = async () => {
-    if (!campText.trim()) return;
+    console.log("Analyze clicked, campText:", campText);
+    if (!campText.trim()) {
+      console.log("Analyze aborted — campText is empty");
+      return;
+    }
     setCampStatus("loading");
     try {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
