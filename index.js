@@ -53,6 +53,36 @@ app.get("/api/fantasypros/injuries", async (req, res) => {
   }
 });
 
+// ─── Camp intel analysis (Anthropic proxy) ────────────────────────────────────
+app.post("/api/analyze-camp", async (req, res) => {
+  try {
+    const { campText } = req.body;
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": process.env.ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1500,
+        system: "You are a fantasy football analyst. Analyze the following player news and injury report. For each relevant player, output a JSON array where each item has: { name, adjustment (number between -5 and +5), risk (1-10), reward (1-10), safety (1-10), reason (one short sentence) }. Only include players relevant to fantasy drafts. Return only the JSON array, no other text.",
+        messages: [{ role: "user", content: campText }],
+      }),
+    });
+    if (!response.ok) throw new Error(`Anthropic API responded with ${response.status}`);
+    const data = await response.json();
+    const raw = data.content?.find(b => b.type === "text")?.text || "[]";
+    const cleaned = raw.replace(/```json|```/g, "").trim();
+    const adjustments = JSON.parse(cleaned);
+    res.json({ adjustments });
+  } catch (err) {
+    console.error("Analyze camp error:", err.message);
+    res.status(500).json({ error: "Failed to analyze camp intel" });
+  }
+});
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function cleanText(str) {
   if (!str) return "";

@@ -542,22 +542,6 @@ function getReason(p, roster, round) {
   return parts.slice(0,2).join(" · ") || "Solid value at ADP";
 }
 
-const CAMP_PROMPT = `You are an NFL fantasy analyst for 2025. Analyze the training camp and news notes below for a half-PPR fantasy draft. For each player mentioned return a JSON array with:
-- "name": exact player name
-- "adj": integer -5 to +5 (positive = rise in rankings, negative = drop)
-- "signal": "up", "down", or "neutral"  
-- "summary": max one sentence reason
-- "risk": one of "Low", "Slight", "Medium", "High"
-- "reward": one of "Low", "Solid", "High"
-- "safety": one of "Very Safe", "Safe", "Solid", "Okay", "Risky"
-
-Rules: injury/limited practice = -2 to -4, dominant camp presence = +2 to +3, new team uncertainty = -1, age concern = -1 to -2, confirmed starter role = +2, precautionary rest for elite player = -1.
-
-Respond ONLY with valid JSON array, no markdown.
-
-Notes:
-`;
-
 const LEAGUES = [{id:0,name:"League 1",teams:12},{id:1,name:"League 2",teams:10}];
 
 const LS_KEYS = {
@@ -610,7 +594,7 @@ function formatFpInjuries(injuriesData) {
   const items = extractInjuryItems(injuriesData);
   return items.map(inj => {
     const name = inj.name || inj.player_name || inj.player?.name || "Unknown Player";
-    const team = inj.team || inj.player?.team || "";
+    const team = inj.team_id || "";
     const posId = inj.position_id || inj.position || inj.pos || "";
     const statusShort = inj.status_short || inj.status || "";
     const injuryType = inj.injury_type || inj.type || "no details";
@@ -962,20 +946,17 @@ export default function App() {
     }
     setCampStatus("loading");
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const res = await fetch(`${SERVER}/api/analyze-camp`, {
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-          model:"claude-sonnet-4-6", max_tokens:1500,
-          messages:[{role:"user",content:CAMP_PROMPT+campText}]
-        })
+        body:JSON.stringify({ campText })
       });
+      if (!res.ok) throw new Error(`analyze-camp responded with ${res.status}`);
       const data = await res.json();
-      const raw = data.content?.find(b=>b.type==="text")?.text||"[]";
-      const cleaned = raw.replace(/```json|```/g,"").trim();
-      const adjs = JSON.parse(cleaned);
+      const adjs = data.adjustments || [];
       const adjMap={};
-      adjs.forEach(a=>{adjMap[a.name]=a;});
+      adjs.forEach(a=>{adjMap[a.name]={adj:a.adjustment, signal:a.adjustment>0?"up":a.adjustment<0?"down":"flat",
+        summary:a.reason, risk:a.risk, reward:a.reward, safety:a.safety};});
       setCampAdjs(adjMap);
       setPlayers(prev=>{
         const updated = prev.map(p=>{
