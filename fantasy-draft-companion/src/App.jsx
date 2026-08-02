@@ -42,6 +42,10 @@ const THEMES = {
     "--sig-amber": "#fbbf24",
     "--sig-orange": "#fb923c",
     "--sig-red": "#f87171",
+    "--tier-t1": "#1a56db",
+    "--tier-t2": "#0e9f6e",
+    "--tier-t3": "#c27803",
+    "--tier-t4": "#9b1c1c",
   },
   light: {
     "--bg-app": "#f0f4f8",
@@ -74,7 +78,7 @@ const THEMES = {
     "--pos-qb": "#7c3aed",
     "--pos-rb": "#0369a1",
     "--pos-wr": "#0f766e",
-    "--pos-te": "#f59e0b",
+    "--pos-te": "#b45309",
     "--pos-k": "#6b7280",
     "--pos-def": "#4b5563",
     "--sig-green": "#047857",
@@ -82,6 +86,10 @@ const THEMES = {
     "--sig-amber": "#b45309",
     "--sig-orange": "#c2410c",
     "--sig-red": "#b91c1c",
+    "--tier-t1": "#1a56db",
+    "--tier-t2": "#047857",
+    "--tier-t3": "#b45309",
+    "--tier-t4": "#9b1c1c",
   },
 };
 
@@ -93,6 +101,8 @@ const ROW_COLS_COMPACT = "22px 28px 210px 40px 72px 88px 46px 48px 76px";
 
 const POSITIONS = ["ALL", "QB", "RB", "WR", "TE", "K", "DEF"];
 const TIER_COLORS = { 1: "#1a56db", 2: "#0e9f6e", 3: "#c27803", 4: "#9b1c1c" };
+// Theme-aware variant of TIER_COLORS for plain text on card/sidebar backgrounds (badges keep the raw fill above)
+const TIER_TEXT_COLORS = { 1: "var(--tier-t1)", 2: "var(--tier-t2)", 3: "var(--tier-t3)", 4: "var(--tier-t4)" };
 const TIER_LABELS = {
   QB: { 1: "Elite", 2: "Strong", 3: "Startable", 4: "Streamable" },
   RB: { 1: "Elite", 2: "RB2", 3: "Flex", 4: "Handcuff" },
@@ -263,6 +273,8 @@ function defTextColor(l) { return (l==="Elite"||l==="Strong")?"var(--sig-red)":l
 function sosTextColor(g) { return (g==="A"||g==="A-"||g==="A+")?"var(--sig-green)":(g==="B+"||g==="B")?"var(--sig-blue)":g==="B-"?"var(--sig-amber)":"var(--sig-red)"; }
 function riskColor(r) { return r==="Low"?"#0e9f6e":r==="Slight"?"#1a56db":r==="Medium"?"#c27803":"#9b1c1c"; }
 function safetyColor(s) { return (s==="Very Safe"||s==="Safe")?"#0e9f6e":s==="Solid"?"#1a56db":s==="Okay"?"#c27803":"#9b1c1c"; }
+// Theme-aware variant of safetyColor for plain text on card/row backgrounds (badges keep the raw fill above)
+function safetyTextColor(s) { return (s==="Very Safe"||s==="Safe")?"var(--tier-t2)":s==="Solid"?"var(--tier-t1)":s==="Okay"?"var(--tier-t3)":"var(--tier-t4)"; }
 function rewardColor(r) { return r==="High"?"#0e9f6e":r==="Solid"?"#1a56db":"#c27803"; }
 function meterWidth(val) {
   const map = {"Low":15,"Slight":35,"Medium":60,"High":90,"Very Safe":90,"Safe":72,"Solid":55,"Okay":35,"High reward":90,"Solid reward":65};
@@ -938,7 +950,7 @@ export default function App() {
     const [hoverMine, setHoverMine] = useState(false);
     const [hoverGone, setHoverGone] = useState(false);
     return (
-      <div onClick={()=>setSelected(p)} className="player-row" style={{background:isSel?"var(--bg-row-sel)":isRec?"var(--bg-row-rec)":zebra,boxShadow:isSel?"inset 0 0 0 1px var(--border-accent)":"none",borderBottom:"1px solid var(--border)",borderLeft:`4px solid ${POS_COLORS[p.pos]||"#555"}`,cursor:"pointer",transition:"background 0.1s, filter 0.1s",opacity:isDrafted?0.55:1}}>
+      <div onClick={()=>setSelected(p)} className="player-row" style={{background:isSel?"var(--bg-row-sel)":isRec?"var(--bg-row-rec)":zebra,boxShadow:isSel?"inset 0 0 0 1px var(--border-accent)":"none",borderBottom:"1px solid var(--border)",borderLeft:`4px solid ${POS_COLORS[p.pos]||"#555"}`,cursor:"pointer",transition:"background 0.1s, filter 0.1s",opacity:isDrafted?0.45:1}}>
         <div style={{display:"grid",gridTemplateColumns:compact?ROW_COLS_COMPACT:ROW_COLS,gap:compact?3:8,alignItems:"center",padding:compact?"6px 6px":"8px 12px",fontSize:compact?11:12}}>
           <span style={{color:"var(--text-secondary)",fontWeight:700,textAlign:"right"}}>{p.rank}</span>
           <span style={{fontSize:compact?9:10,fontWeight:800,padding:"2px 5px",borderRadius:4,background:POS_COLORS[p.pos]||"#555",color:"#fff",textAlign:"center",letterSpacing:"0.04em",border:"1px solid rgba(255,255,255,0.3)"}}>{p.pos}</span>
@@ -965,7 +977,7 @@ export default function App() {
             )
           ):<span/>}
           {s?<span style={{fontSize:compact?9:10,color:sosTextColor(s.e)}}>SOS {s.e}</span>:<span/>}
-          <span style={{fontSize:compact?9:10,fontWeight:600,color:safetyColor(p.safety),whiteSpace:"nowrap"}}>{p.safety}</span>
+          <span style={{fontSize:compact?9:10,fontWeight:600,color:safetyTextColor(p.safety),whiteSpace:"nowrap"}}>{p.safety}</span>
           {isDrafted?(
             <span style={{fontSize:8,fontWeight:800,padding:"3px 7px",borderRadius:"var(--radius)",border:"1px solid var(--text-muted)",color:"var(--text-muted)",whiteSpace:"nowrap",textAlign:"center",letterSpacing:"0.04em"}}>DRAFTED</span>
           ):(
@@ -1120,7 +1132,7 @@ export default function App() {
               {[1,2,3,4].map(tier=>{
                 const count=scarcity[pos]?.[tier];
                 if(count===undefined) return null;
-                const color=count===0?"#9b1c1c":count<=2?"#c27803":count<=5?"#1a56db":"#0e9f6e";
+                const color=count===0?"var(--tier-t4)":count<=2?"var(--tier-t3)":count<=5?"var(--tier-t1)":"var(--tier-t2)";
                 return (
                   <div key={tier} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"2px 0",borderBottom:"0.5px solid var(--border)"}}>
                     <span style={{fontSize:11,fontWeight:600,color:"var(--text-secondary)"}}>T{tier}</span>
@@ -1173,7 +1185,7 @@ export default function App() {
                             <span style={{fontSize:9,padding:"2px 5px",borderRadius:4,background:TIER_COLORS[p.tier],color:"#fff",fontWeight:700,flexShrink:0}}>{p.pos}</span>
                             {p.campAdj!==undefined&&p.campAdj!==0&&<span style={{fontSize:9,fontWeight:700,color:p.campAdj>0?"#0e9f6e":"#e03e3e",flexShrink:0}}>{p.campAdj>0?"▲":"▼"}{Math.abs(p.campAdj)}</span>}
                           </div>
-                          <span style={{fontSize:11,fontWeight:700,padding:"3px 9px",borderRadius:"var(--radius)",background:`${safetyColor(p.safety)}26`,color:safetyColor(p.safety),width:"fit-content"}}>{p.safety}</span>
+                          <span style={{fontSize:11,fontWeight:700,padding:"3px 9px",borderRadius:"var(--radius)",background:`${safetyColor(p.safety)}26`,color:safetyTextColor(p.safety),width:"fit-content"}}>{p.safety}</span>
                           <div style={{fontSize:11,color:"var(--text-secondary)",lineHeight:1.5,flex:1,display:"-webkit-box",WebkitLineClamp:3,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{getReason(p,roster,round)}</div>
                         </div>
                       ))}
@@ -1248,7 +1260,7 @@ export default function App() {
                             return (
                               <div key={tier} style={{borderTop:ti>0?"1px solid var(--border)":"none"}}>
                                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:3,padding:"3px 5px",minWidth:0}}>
-                                  <span style={{fontSize:8,fontWeight:800,color:TIER_COLORS[tier]||"#888",textTransform:"uppercase",letterSpacing:"0.03em",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0,flex:1}}>{label}</span>
+                                  <span style={{fontSize:8,fontWeight:800,color:TIER_TEXT_COLORS[tier]||"var(--text-muted)",textTransform:"uppercase",letterSpacing:"0.03em",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0,flex:1}}>{label}</span>
                                   {cliffTint&&<span style={{fontSize:8,fontWeight:800,color:"var(--text-warning)",background:"var(--bg-warn)",border:"1px solid var(--text-warning)",borderRadius:3,padding:"1px 4px",whiteSpace:"nowrap",flexShrink:0,letterSpacing:"0.02em"}}>⚠ {ps.length} left</span>}
                                 </div>
                                 {ps.map(p=>(
@@ -1287,7 +1299,7 @@ export default function App() {
                       {p.campAdj!==undefined&&p.campAdj!==0&&<span style={{fontSize:8,color:p.campAdj>0?"#0e9f6e":"#e03e3e"}}>{p.campAdj>0?"▲":"▼"}{Math.abs(p.campAdj)}</span>}
                       <span style={{fontSize:9,color:"var(--text-secondary)"}}>{p.team}</span>
                       <span style={{fontSize:8,padding:"1px 4px",borderRadius:3,background:TIER_COLORS[p.tier],color:"#fff"}}>T{p.tier}</span>
-                      <span style={{fontSize:9,color:safetyColor(p.safety)}}>{p.safety}</span>
+                      <span style={{fontSize:9,color:safetyTextColor(p.safety)}}>{p.safety}</span>
                       <span style={{fontSize:9,color:"var(--text-muted)"}}>Bye {p.bye}</span>
                       {SOS[p.team]&&<span style={{fontSize:8,color:sosTextColor(SOS[p.team].e)}}>SOS {SOS[p.team].e}</span>}
                     </>:<span style={{fontSize:10,color:"var(--text-muted)",fontStyle:"italic"}}>Empty</span>}
