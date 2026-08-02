@@ -340,6 +340,10 @@ function parseIntSafe(v) {
   const n = parseInt(String(v ?? "").replace(/[^0-9-]/g, ""), 10);
   return Number.isFinite(n) ? n : null;
 }
+function parseFloatSafe(v) {
+  const n = parseFloat(String(v ?? "").replace(/[^0-9.-]/g, ""));
+  return Number.isFinite(n) ? n : null;
+}
 function parseSosStars(v) {
   const m = String(v ?? "").match(/(\d+(\.\d+)?)/);
   if (!m) return null;
@@ -407,6 +411,11 @@ function parseFantasyProsRows(text, forcedPos) {
     bye: headerIndex(headers, "BYE WEEK"),
     sos: headerIndex(headers, "SOS SEASON"),
     ecr: headerIndex(headers, "ECR VS. ADP"),
+    best: headerIndex(headers, "BEST"),
+    worst: headerIndex(headers, "WORST"),
+    avg: headerIndex(headers, "AVG."),
+    stddev: headerIndex(headers, "STD.DEV"),
+    notes: headerIndex(headers, "NOTES"),
   };
   const out = [];
   for (let i = 1; i < rows.length; i++) {
@@ -429,7 +438,12 @@ function parseFantasyProsRows(text, forcedPos) {
     const bye = idx.bye >= 0 ? parseIntSafe(r[idx.bye]) : null;
     const sosStars = idx.sos >= 0 ? parseSosStars(r[idx.sos]) : null;
     const ecrVsAdp = idx.ecr >= 0 ? ((r[idx.ecr] || "").trim() || "-") : "-";
-    out.push({ rank, tier, name, team, pos, posRank, bye, sosStars, ecrVsAdp });
+    const best = idx.best >= 0 ? parseFloatSafe(r[idx.best]) : null;
+    const worst = idx.worst >= 0 ? parseFloatSafe(r[idx.worst]) : null;
+    const avg = idx.avg >= 0 ? parseFloatSafe(r[idx.avg]) : null;
+    const stddev = idx.stddev >= 0 ? parseFloatSafe(r[idx.stddev]) : null;
+    const notes = idx.notes >= 0 ? (r[idx.notes] || "").trim() : "";
+    out.push({ rank, tier, name, team, pos, posRank, bye, sosStars, ecrVsAdp, best, worst, avg, stddev, notes });
   }
   return out;
 }
@@ -451,6 +465,7 @@ function toAppPlayer(raw, id) {
     id, name: raw.name, pos: raw.pos, team: raw.team, tier,
     rank: raw.rank, adp: raw.rank, bye: raw.bye,
     posRank: raw.posRank, sosStars: raw.sosStars, ecrVsAdp: raw.ecrVsAdp,
+    best: raw.best, worst: raw.worst, avg: raw.avg, stddev: raw.stddev,
     risk: deriveRisk(tier), reward: deriveReward(raw.sosStars), safety: deriveSafety(tier),
   };
 }
@@ -661,9 +676,12 @@ export default function App() {
   const [theme, setTheme] = useState("dark");
   const [importInfo, setImportInfo] = useState(null);
   const [importError, setImportError] = useState(null);
+  const [notesImportInfo, setNotesImportInfo] = useState(null);
+  const [notesImportError, setNotesImportError] = useState(null);
   const [slotMsg, setSlotMsg] = useState(null);
   const sidebarRef = useRef(null);
   const fileInputRef = useRef(null);
+  const notesFileInputRef = useRef(null);
 
   useEffect(() => {
     if (sidebarRef.current) sidebarRef.current.scrollTop = 0;
@@ -911,6 +929,23 @@ export default function App() {
     }
   };
 
+  const handleImportNotesFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const rows = parseFantasyProsRows(text, null);
+      const withNotes = rows.filter(r => r.notes);
+      setCampText(withNotes.map(r => `${r.name} (${r.team}, ${r.pos}): ${r.notes}`).join("\n"));
+      setNotesImportError(null);
+      setNotesImportInfo({ count: withNotes.length, timestamp: new Date() });
+    } catch (err) {
+      setNotesImportError(err.message || "Failed to import notes CSV");
+    } finally {
+      e.target.value = "";
+    }
+  };
+
   const fetchFantasyProsData = async () => {
     setFetchStatus("loading");
     try {
@@ -1147,7 +1182,11 @@ export default function App() {
           <input type="number" min={1} max={teams} value={draftPos} onChange={e=>setDraftPos(Number(e.target.value))} style={{width:36,fontSize:10,textAlign:"center"}}/>
           <input ref={fileInputRef} type="file" accept=".csv" multiple onChange={handleImportFiles} style={{display:"none"}}/>
           <button onClick={()=>fileInputRef.current?.click()} style={{fontSize:10,padding:"3px 9px",borderRadius:6,border:`1px solid var(--border)`,background:"transparent",cursor:"pointer",color:"var(--text-secondary)"}}>
-            ⬆ Import Rankings
+            ⬆ Import Rankings CSV
+          </button>
+          <input ref={notesFileInputRef} type="file" accept=".csv" onChange={handleImportNotesFile} style={{display:"none"}}/>
+          <button onClick={()=>notesFileInputRef.current?.click()} style={{fontSize:10,padding:"3px 9px",borderRadius:6,border:`1px solid var(--border)`,background:"transparent",cursor:"pointer",color:"var(--text-secondary)"}}>
+            ⬆ Import Notes CSV
           </button>
           {hasCustomRankings&&(
             <span title="Custom rankings loaded from CSV import are saved and will persist across refreshes" style={{fontSize:9,display:"flex",alignItems:"center",gap:4,padding:"3px 8px",borderRadius:"var(--radius)",background:"var(--bg-success)",color:"var(--text-success)",fontWeight:500}}>
@@ -1181,6 +1220,19 @@ export default function App() {
             </span>
           )}
           <button onClick={()=>{setImportInfo(null);setImportError(null);}} style={{marginLeft:"auto",background:"none",border:"none",cursor:"pointer",color:"var(--text-muted)",fontSize:11}}>✕</button>
+        </div>
+      )}
+
+      {(notesImportInfo||notesImportError)&&(
+        <div style={{padding:"5px 12px",background:notesImportError?"var(--bg-danger)":"var(--bg-success)",borderBottom:`1px solid var(--border)`,display:"flex",alignItems:"center",gap:8,fontSize:10}}>
+          {notesImportError?(
+            <span style={{color:"var(--text-danger)"}}>Notes import failed: {notesImportError}</span>
+          ):(
+            <span style={{color:"var(--text-success)"}}>
+              {notesImportInfo.count} player notes loaded into Camp Intel — {notesImportInfo.timestamp.toLocaleTimeString()}
+            </span>
+          )}
+          <button onClick={()=>{setNotesImportInfo(null);setNotesImportError(null);}} style={{marginLeft:"auto",background:"none",border:"none",cursor:"pointer",color:"var(--text-muted)",fontSize:11}}>✕</button>
         </div>
       )}
 
