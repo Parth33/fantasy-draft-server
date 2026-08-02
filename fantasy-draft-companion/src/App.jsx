@@ -1170,7 +1170,7 @@ export default function App() {
                     <div key={ri} style={{display:"grid",gridTemplateColumns:`repeat(${idxRow.length}, minmax(0, 1fr))`,gap:4}}>
                       {idxRow.map(i=>{
                         const slot=ROSTER_SLOTS[i],p=roster[i];
-                        const displayName = p ? formatRosterName(p.name) : null;
+                        const displayName = p ? (p.pos==="DEF" ? p.team : formatRosterName(p.name)) : null;
                         return (
                           <div key={i} style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,minWidth:0,background:"var(--bg-row)",border:`1px solid var(--border)`,borderRadius:6,padding:"8px 3px"}}>
                             <span style={{fontSize:14,fontWeight:700,color:POS_COLORS[slot]||"var(--text-muted)",letterSpacing:"0.01em"}}>{slot}</span>
