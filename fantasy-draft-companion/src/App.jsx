@@ -943,8 +943,8 @@ export default function App() {
             <span style={{fontSize:8,fontWeight:800,padding:"3px 7px",borderRadius:"var(--radius)",border:"1px solid var(--text-muted)",color:"var(--text-muted)",whiteSpace:"nowrap",textAlign:"center",letterSpacing:"0.04em"}}>DRAFTED</span>
           ):(
             <div style={{display:"flex",gap:4}}>
-              <button className="btn-mine" onClick={e=>{e.stopPropagation();markDrafted(p,true);}} style={{fontSize:9,fontWeight:700,padding:"3px 7px",borderRadius:"var(--radius)",border:"1px solid var(--border)",background:"transparent",color:"var(--text-secondary)",cursor:"pointer"}}>Mine</button>
-              <button className="btn-gone" onClick={e=>{e.stopPropagation();markDrafted(p,false);}} style={{fontSize:9,padding:"3px 6px",borderRadius:"var(--radius)",border:"1px solid var(--border)",background:"transparent",color:"var(--text-secondary)",cursor:"pointer"}}>Gone</button>
+              <button className="btn-mine" onClick={e=>{e.stopPropagation();markDrafted(p,true);}} style={{fontSize:9,fontWeight:700,padding:"3px 7px",borderRadius:"var(--radius)",border:"1px solid var(--border)",background:"transparent",color:"var(--text-secondary)",cursor:"pointer"}}>My Team</button>
+              <button className="btn-gone" onClick={e=>{e.stopPropagation();markDrafted(p,false);}} style={{fontSize:9,padding:"3px 6px",borderRadius:"var(--radius)",border:"1px solid var(--border)",background:"transparent",color:"var(--text-secondary)",cursor:"pointer"}}>Drafted</button>
             </div>
           )}
         </div>
@@ -1128,27 +1128,24 @@ export default function App() {
                   </div>
                 )}
 
-                {/* My roster — two horizontal rows of equal-width slot cards, wraps if too narrow */}
-                <div style={{flex:1,minWidth:0,maxHeight:180,overflow:"hidden",background:"var(--bg-card)",border:`1px solid var(--border)`,borderRadius:8,padding:"5px 8px",lineHeight:1.3}}>
-                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
-                    <span style={{fontSize:8,fontWeight:700,color:"var(--text-secondary)",textTransform:"uppercase",letterSpacing:"0.08em"}}>My Roster</span>
+                {/* My roster — one 10-column grid; the 5 bench slots wrap to a second row at the same card width */}
+                <div style={{flex:1,minWidth:0,background:"var(--bg-card)",border:`1px solid var(--border)`,borderRadius:8,padding:"10px 12px",display:"flex",flexDirection:"column",gap:8}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{fontSize:10,fontWeight:700,color:"var(--text-secondary)",textTransform:"uppercase",letterSpacing:"0.08em"}}>My Roster</span>
                     {byeStackSummary.length>0&&<span style={{fontSize:9,fontWeight:600,color:"var(--text-warning)"}}>Bye stack: {byeStackSummary.join(", ")}</span>}
                   </div>
-                  {[[0,4,5,1,2,3,6,7,8,9],[10,11,12,13,14]].map((idxRow,ri)=>(
-                    <div key={ri} style={{overflowX:"auto",overflowY:"hidden",marginBottom:ri===0?4:0}}>
-                      <div style={{display:"grid",gridTemplateColumns:`repeat(${idxRow.length},1fr)`,gap:6,minWidth:idxRow.length*76}}>
-                        {idxRow.map(i=>{
-                          const slot=ROSTER_SLOTS[i],p=roster[i];
-                          return (
-                            <div key={i} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,background:"var(--bg-row)",border:`1px solid var(--border)`,borderRadius:4,padding:"4px 6px",overflow:"hidden"}}>
-                              <span style={{fontSize:13,fontWeight:600,color:POS_COLORS[slot]||"var(--text-muted)",letterSpacing:"0.02em"}}>{slot}</span>
-                              <span style={{fontSize:13,fontWeight:700,color:p?"var(--text-primary)":"var(--text-muted)",width:"100%",textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p?p.name:"—"}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(10, minmax(0, 1fr))",gap:4}}>
+                    {[0,4,5,1,2,3,6,7,8,9,10,11,12,13,14].map(i=>{
+                      const slot=ROSTER_SLOTS[i],p=roster[i];
+                      const lastName = p ? p.name.trim().split(" ").pop() : null;
+                      return (
+                        <div key={i} style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,minWidth:0,background:"var(--bg-row)",border:`1px solid var(--border)`,borderRadius:6,padding:"8px 3px"}}>
+                          <span style={{fontSize:14,fontWeight:700,color:POS_COLORS[slot]||"var(--text-muted)",letterSpacing:"0.01em"}}>{slot}</span>
+                          <span style={{fontSize:11,fontWeight:600,color:p?"var(--text-primary)":"var(--text-muted)",textAlign:"center",lineHeight:1.15,overflowWrap:"break-word",wordBreak:"normal",hyphens:"auto",maxWidth:"100%"}}>{lastName||"—"}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
@@ -1429,7 +1426,7 @@ export default function App() {
 
             <div style={{display:"flex",gap:4}}>
               <button onClick={()=>markDrafted(selected,true)} style={{flex:1,fontSize:10,padding:"7px 0",borderRadius:6,border:`2px solid var(--border-accent)`,background:"var(--bg-accent-soft)",color:"var(--text-accent)",cursor:"pointer",fontWeight:700}}>✓ My pick</button>
-              <button onClick={()=>markDrafted(selected,false)} style={{flex:1,fontSize:10,padding:"7px 0",borderRadius:6,border:`1px solid var(--border)`,background:"transparent",color:"var(--text-muted)",cursor:"pointer"}}>✕ Gone</button>
+              <button onClick={()=>markDrafted(selected,false)} style={{flex:1,fontSize:10,padding:"7px 0",borderRadius:6,border:`1px solid var(--border)`,background:"transparent",color:"var(--text-muted)",cursor:"pointer"}}>✕ Drafted</button>
             </div>
           </div>
         )}
