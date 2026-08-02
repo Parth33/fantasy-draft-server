@@ -1077,7 +1077,7 @@ export default function App() {
 
               {/* Recs bar + inline roster panel */}
               <div style={{marginBottom:8,display:"flex",gap:8,alignItems:"stretch"}}>
-                {isMyTurn&&recs.length>0&&(
+                {available.length>0&&roster.length<15&&recs.length>0&&(
                   <div style={{background:"var(--bg-accent-soft)",border:`1px solid var(--border-accent)`,borderRadius:8,padding:"10px 14px",width:"fit-content",flexShrink:0,lineHeight:1.3,display:"flex",flexDirection:"column"}}>
                     <div style={{fontSize:10,fontWeight:600,color:"var(--text-accent)",marginBottom:8,textTransform:"uppercase",letterSpacing:"0.05em"}}>Your pick — top recommendations</div>
                     <div style={{display:"flex",gap:8,flexWrap:"nowrap",flex:1,alignItems:"stretch"}}>
@@ -1104,12 +1104,12 @@ export default function App() {
                     {byeStackSummary.length>0&&<span style={{fontSize:9,fontWeight:600,color:"var(--text-warning)"}}>Bye stack: {byeStackSummary.join(", ")}</span>}
                   </div>
                   {[[0,4,5,1,2,3,6,7,8,9],[10,11,12,13,14]].map((idxRow,ri)=>(
-                    <div key={ri} style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(84px,1fr))",gap:6,marginBottom:ri===0?8:0}}>
+                    <div key={ri} style={{display:"grid",gridTemplateColumns:`repeat(${idxRow.length},1fr)`,gap:6,marginBottom:ri===0?8:0}}>
                       {idxRow.map(i=>{
                         const slot=ROSTER_SLOTS[i],p=roster[i];
                         return (
-                          <div key={i} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,background:"var(--bg-row)",border:`1px solid var(--border)`,borderRadius:5,padding:"6px 4px",overflow:"hidden"}}>
-                            <span style={{fontSize:12,fontWeight:800,color:POS_COLORS[slot]||"var(--text-muted)",letterSpacing:"0.02em"}}>{slot}</span>
+                          <div key={i} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,background:"var(--bg-row)",border:`1px solid var(--border)`,borderRadius:5,padding:"8px 6px",overflow:"hidden"}}>
+                            <span style={{fontSize:13,fontWeight:800,color:POS_COLORS[slot]||"var(--text-muted)",letterSpacing:"0.02em"}}>{slot}</span>
                             <span style={{fontSize:13,fontWeight:700,color:p?"var(--text-primary)":"var(--text-muted)",width:"100%",textAlign:"center",lineHeight:1.2,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{p?p.name:"—"}</span>
                           </div>
                         );
