@@ -18,10 +18,15 @@ app.get("/api/health", (req, res) => {
 app.get("/api/fantasypros/news", async (req, res) => {
   try {
     const response = await fetch("https://api.fantasypros.com/public/v2/json/nfl/news?limit=100&category=null", {
-      headers: { "x-api-key": process.env.FANTASYPROS_API_KEY },
+      headers: { "x-api-key": process.env.FANTASYPROS_API_KEY, "Cache-Control": "no-cache" },
     });
     if (!response.ok) throw new Error(`FantasyPros responded with ${response.status}`);
     const data = await response.json();
+    res.set({
+      "Cache-Control": "no-store, no-cache, must-revalidate",
+      "Pragma": "no-cache",
+      "Expires": "0",
+    });
     res.json(data);
   } catch (err) {
     console.error("FantasyPros news error:", err.message);
@@ -32,10 +37,15 @@ app.get("/api/fantasypros/news", async (req, res) => {
 app.get("/api/fantasypros/injuries", async (req, res) => {
   try {
     const response = await fetch("https://api.fantasypros.com/public/v2/json/nfl/injuries?include_probabilities=true", {
-      headers: { "x-api-key": process.env.FANTASYPROS_API_KEY },
+      headers: { "x-api-key": process.env.FANTASYPROS_API_KEY, "Cache-Control": "no-cache" },
     });
     if (!response.ok) throw new Error(`FantasyPros responded with ${response.status}`);
     const data = await response.json();
+    res.set({
+      "Cache-Control": "no-store, no-cache, must-revalidate",
+      "Pragma": "no-cache",
+      "Expires": "0",
+    });
     res.json(data);
   } catch (err) {
     console.error("FantasyPros injuries error:", err.message);
