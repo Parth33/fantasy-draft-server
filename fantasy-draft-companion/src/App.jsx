@@ -1425,7 +1425,7 @@ export default function App() {
           {activeTab==="camp"&&(
             <div>
               <div style={{fontSize:12,fontWeight:500,marginBottom:4}}>Camp intel</div>
-              <div style={{fontSize:10,color:"var(--text-secondary)",marginBottom:12}}>Latest player news and injury data from FantasyPros, cached for 24 hours and refreshed automatically. The AI analyzes everything and adjusts rankings, risk, reward, and safety scores automatically.</div>
+              <div style={{fontSize:10,color:"var(--text-primary)",marginBottom:12}}>Latest player news and injury data from FantasyPros, cached for 24 hours and refreshed automatically. The AI analyzes everything and adjusts rankings, risk, reward, and safety scores automatically.</div>
 
               <div style={{display:"flex",gap:8,marginBottom:6,alignItems:"center",flexWrap:"wrap"}}>
                 <button onClick={fetchFantasyProsData} disabled={fetchStatus==="loading"} style={{fontSize:11,padding:"7px 14px",borderRadius:6,border:`1px solid var(--border)`,background:"var(--bg-card)",cursor:fetchStatus==="loading"?"wait":"pointer",color:"var(--text-primary)",fontWeight:500}}>
@@ -1433,10 +1433,10 @@ export default function App() {
                 </button>
                 {fetchStatus==="error"&&<span style={{fontSize:10,color:"var(--text-danger)"}}>Fetch failed — paste notes manually below</span>}
 
-                <button onClick={fetchXHandles} style={{fontSize:10,padding:"5px 10px",borderRadius:"var(--radius)",border:"0.5px solid var(--border)",background:"transparent",cursor:"pointer",color:"var(--text-secondary)"}}>X handles to follow</button>
+                <button onClick={fetchXHandles} style={{fontSize:10,padding:"5px 10px",borderRadius:"var(--radius)",border:"0.5px solid var(--border)",background:"transparent",cursor:"pointer",color:"var(--text-primary)"}}>X handles to follow</button>
               </div>
 
-              <div style={{fontSize:9,color:"var(--text-muted)",marginBottom:10}}>
+              <div style={{fontSize:13,color:"var(--text-primary)",fontWeight:500,marginBottom:10}}>
                 {fpLastUpdated?`Last updated: ${new Date(fpLastUpdated).toLocaleString()}`:"Not yet fetched"}
               </div>
 
@@ -1447,7 +1447,7 @@ export default function App() {
                     {xHandles.leagueWide.map(h=>(
                       <div key={h.handle} style={{background:"var(--surface-2)",borderRadius:"var(--radius)",padding:"4px 8px",fontSize:9,border:"0.5px solid var(--border)"}}>
                         <span style={{fontWeight:500,color:"var(--text-accent)"}}>{h.handle}</span>
-                        <span style={{color:"var(--text-muted)",marginLeft:4}}>{h.focus}</span>
+                        <span style={{color:"var(--text-primary)",marginLeft:4}}>{h.focus}</span>
                       </div>
                     ))}
                   </div>
@@ -1460,8 +1460,8 @@ export default function App() {
                 <button onClick={runCampAnalysis} disabled={campStatus==="loading"||!campText.trim()} style={{fontSize:11,padding:"7px 16px",borderRadius:6,border:`2px solid var(--border-accent)`,background:"var(--bg-accent-soft)",color:"var(--text-accent)",cursor:campStatus==="loading"?"wait":"pointer",fontWeight:700}}>
                   {campStatus==="loading"?"Analyzing...":"Analyze and apply to rankings"}
                 </button>
-                {campStatus==="loading"&&<span style={{fontSize:9,color:"var(--text-muted)"}}>AI reading notes, adjusting rankings...</span>}
-                {campLastRun&&<span style={{fontSize:9,color:"var(--text-muted)"}}>Last run {campLastRun.toLocaleTimeString()}</span>}
+                {campStatus==="loading"&&<span style={{fontSize:9,color:"var(--text-primary)"}}>AI reading notes, adjusting rankings...</span>}
+                {campLastRun&&<span style={{fontSize:9,color:"var(--text-primary)"}}>Last run {campLastRun.toLocaleTimeString()}</span>}
               </div>
 
               {campStatus==="done"&&Object.keys(campAdjs).length>0&&(
@@ -1472,8 +1472,8 @@ export default function App() {
                       <div key={name} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:"var(--surface-1)",borderRadius:"var(--radius)",border:"0.5px solid var(--border)",fontSize:10}}>
                         <span style={{fontSize:13}}>{a.signal==="up"?"▲":a.signal==="down"?"▼":"—"}</span>
                         <span style={{fontWeight:500,width:150,flexShrink:0}}>{name}</span>
-                        <span style={{color:a.adj>0?"#0e9f6e":a.adj<0?"#e03e3e":"var(--text-muted)",fontWeight:500,width:56,flexShrink:0}}>{a.adj>0?`+${a.adj}`:a.adj} spots</span>
-                        <span style={{color:"var(--text-secondary)",flex:1}}>{a.summary}</span>
+                        <span style={{color:a.adj>0?"#0e9f6e":a.adj<0?"#e03e3e":"var(--text-primary)",fontWeight:500,width:56,flexShrink:0}}>{a.adj>0?`+${a.adj}`:a.adj} spots</span>
+                        <span style={{color:"var(--text-primary)",flex:1}}>{a.summary}</span>
                         <span style={{fontSize:8,padding:"1px 5px",borderRadius:3,background:safetyColor(a.safety||"Solid"),color:"#fff"}}>{scoreLabel(a.safety)}</span>
                       </div>
                     ))}
