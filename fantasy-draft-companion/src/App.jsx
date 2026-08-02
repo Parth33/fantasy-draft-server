@@ -567,18 +567,6 @@ export default function App() {
 
   const sorted = useMemo(() => [...filtered].sort((a,b)=>a.rank-b.rank), [filtered]);
 
-  const tierGroups = useMemo(() => {
-    const g={};
-    filtered.forEach(p=>{const k=`${p.pos}-${p.tier}`;if(!g[k])g[k]=[];g[k].push(p);});
-    return g;
-  }, [filtered]);
-
-  const tierOrder = useMemo(() => Object.keys(tierGroups).sort((a,b)=>{
-    const ra=Math.min(...tierGroups[a].map(p=>p.rank));
-    const rb=Math.min(...tierGroups[b].map(p=>p.rank));
-    return ra-rb;
-  }), [tierGroups]);
-
   const recs = useMemo(() => getRecs(available, roster, round), [available, roster, round]);
 
   const isMyTurn = useMemo(() => {
@@ -1071,25 +1059,37 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* RIGHT: Tier view */}
+                {/* RIGHT: Tier cheat sheet */}
                 <div>
                   <div style={{fontSize:10,fontWeight:500,color:"var(--text-secondary)",marginBottom:4,paddingBottom:4,borderBottom:"0.5px solid var(--border)"}}>By tier</div>
-                  <div style={{border:"1px solid var(--border)",borderRadius:8,overflow:"hidden"}}>
-                    <div style={{display:"grid",gridTemplateColumns:ROW_COLS_COMPACT,gap:3,padding:"7px 6px",fontSize:10,fontWeight:700,color:"var(--text-secondary)",textTransform:"uppercase",letterSpacing:"0.04em",background:"var(--bg-card)",borderBottom:"1px solid var(--border)"}}>
-                      <span style={{textAlign:"right"}}>#</span><span>Pos</span><span>Player</span><span>Bye</span><span>O-Line</span><span>Defense</span><span>SOS</span><span>Safety</span><span></span>
-                    </div>
-                    {tierOrder.map(key=>{
-                      const ps=tierGroups[key];
-                      const [pos,tier]=key.split("-");
-                      const color=TIER_COLORS[Number(tier)]||"#888";
-                      const label=(TIER_LABELS[pos]||TIER_LABELS.WR)[Number(tier)];
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(4, minmax(0, 1fr))",gap:4}}>
+                    {["QB","RB","WR","TE"].map(pos=>{
+                      const byTier=tiersByPos[pos]||{};
+                      const tierNums=Object.keys(byTier).map(Number).sort((a,b)=>a-b);
+                      const color=POS_COLORS[pos];
                       return (
-                        <div key={key}>
-                          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"5px 10px",background:`${color}26`,borderTop:`1px solid ${color}55`,borderBottom:`1px solid ${color}55`}}>
-                            <span style={{fontSize:10,fontWeight:800,color,textTransform:"uppercase",letterSpacing:"0.06em"}}>{pos} T{tier} — {label}</span>
-                            <span style={{fontSize:9,fontWeight:700,color}}>{ps.length} left</span>
-                          </div>
-                          {ps.map((p,i)=><PlayerRow key={p.id} p={p} compact index={i}/>)}
+                        <div key={pos} style={{border:"1px solid var(--border)",borderRadius:8,overflow:"hidden",background:"var(--bg-card)",minWidth:0}}>
+                          <div style={{padding:"6px 4px",background:color,color:"#fff",fontSize:11,fontWeight:800,textAlign:"center",letterSpacing:"0.06em"}}>{pos}</div>
+                          {tierNums.map((tier,ti)=>{
+                            const ps=byTier[tier];
+                            const cliffTint=ps.length<=2;
+                            const label=(TIER_LABELS[pos]||TIER_LABELS.WR)[tier]||`Tier ${tier}`;
+                            return (
+                              <div key={tier} style={{background:cliffTint?"var(--bg-warn)":"transparent",borderTop:ti>0?"1px solid var(--border)":"none"}}>
+                                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:3,padding:"3px 5px",minWidth:0}}>
+                                  <span style={{fontSize:8,fontWeight:800,color:TIER_COLORS[tier]||"#888",textTransform:"uppercase",letterSpacing:"0.03em",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0,flex:1}}>T{tier} {label}</span>
+                                  {cliffTint&&<span style={{fontSize:8,fontWeight:700,color:"var(--text-warning)",whiteSpace:"nowrap",flexShrink:0}}>{ps.length} left</span>}
+                                </div>
+                                {ps.map(p=>(
+                                  <div key={p.id} onClick={()=>setSelected(p)} title={`${p.name} (${p.team})`} style={{display:"flex",alignItems:"baseline",gap:3,padding:"2px 5px",cursor:"pointer",minWidth:0}}>
+                                    <span style={{fontSize:9,fontWeight:700,color:"var(--text-secondary)",width:13,flexShrink:0,textAlign:"right"}}>{p.rank}</span>
+                                    <span style={{fontSize:9,fontWeight:600,color:"var(--text-primary)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1,minWidth:0}}>{p.name}</span>
+                                    <span style={{fontSize:8,color:"var(--text-muted)",flexShrink:0}}>{p.team}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          })}
                         </div>
                       );
                     })}
