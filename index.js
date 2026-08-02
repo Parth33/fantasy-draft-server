@@ -14,6 +14,35 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
+// ─── FantasyPros proxy ────────────────────────────────────────────────────────
+app.get("/api/fantasypros/news", async (req, res) => {
+  try {
+    const response = await fetch("https://api.fantasypros.com/public/v2/json/nfl/news?limit=100&category=null", {
+      headers: { "x-api-key": process.env.FANTASYPROS_API_KEY },
+    });
+    if (!response.ok) throw new Error(`FantasyPros responded with ${response.status}`);
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    console.error("FantasyPros news error:", err.message);
+    res.status(500).json({ error: "Failed to fetch FantasyPros news" });
+  }
+});
+
+app.get("/api/fantasypros/injuries", async (req, res) => {
+  try {
+    const response = await fetch("https://api.fantasypros.com/public/v2/json/nfl/injuries?include_probabilities=true", {
+      headers: { "x-api-key": process.env.FANTASYPROS_API_KEY },
+    });
+    if (!response.ok) throw new Error(`FantasyPros responded with ${response.status}`);
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    console.error("FantasyPros injuries error:", err.message);
+    res.status(500).json({ error: "Failed to fetch FantasyPros injuries" });
+  }
+});
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function cleanText(str) {
   if (!str) return "";

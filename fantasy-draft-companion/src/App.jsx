@@ -580,6 +580,28 @@ function saveLS(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
 }
 
+const FP_CACHE_MS = 24 * 60 * 60 * 1000;
+
+function extractNewsItems(newsData) {
+  const items = newsData?.news || newsData?.data || (Array.isArray(newsData) ? newsData : []);
+  return [...items].sort((a, b) => {
+    const da = new Date(a.date || a.published_at || a.updated || 0).getTime();
+    const db = new Date(b.date || b.published_at || b.updated || 0).getTime();
+    return db - da;
+  });
+}
+
+function formatFpNews(newsData) {
+  const items = extractNewsItems(newsData);
+  return items.map(n => {
+    const name = n.player_name || n.name || n.player?.name || "Unknown Player";
+    const team = n.team || n.player?.team || "";
+    const desc = n.description || n.desc || n.title || "";
+    const impact = n.impact || n.analysis || "";
+    return `${name}${team ? ` (${team})` : ""}: ${desc}${impact ? `. Impact: ${impact}` : ""}`;
+  }).join("\n");
+}
+
 export default function App() {
   const [league, setLeague] = useState(() => loadLS(LS_KEYS.league, 0));
   const [draftedIds, setDraftedIds] = useState(() => loadLS(LS_KEYS.drafted, [[],[]]));
@@ -603,6 +625,7 @@ export default function App() {
   const [campAdjs, setCampAdjs] = useState({});
   const [campLastRun, setCampLastRun] = useState(null);
   const [fetchStatus, setFetchStatus] = useState("idle");
+  const [fpLastUpdated, setFpLastUpdated] = useState(null);
   const [recentPicks, setRecentPicks] = useState([]);
   const [xHandles, setXHandles] = useState(null);
   const [theme, setTheme] = useState("dark");
@@ -858,21 +881,41 @@ export default function App() {
     }
   };
 
-  const fetchCampNews = async () => {
+  const fetchFantasyProsData = async () => {
     setFetchStatus("loading");
     try {
-      const res = await fetch(`${SERVER}/api/camp-news`);
-      const data = await res.json();
-      if (data.success && data.notes.length > 0) {
-        setCampText(data.notes.join("\n"));
-        setFetchStatus("done");
-      } else {
-        setFetchStatus("empty");
-      }
-    } catch(e) {
+      const [newsRes, injuriesRes] = await Promise.all([
+        fetch(`${SERVER}/api/fantasypros/news`),
+        fetch(`${SERVER}/api/fantasypros/injuries`),
+      ]);
+      const newsData = await newsRes.json();
+      const injuriesData = await injuriesRes.json();
+      const ts = Date.now();
+      localStorage.setItem("fp_news_cache", JSON.stringify(newsData));
+      localStorage.setItem("fp_injuries_cache", JSON.stringify(injuriesData));
+      localStorage.setItem("fp_cache_timestamp", String(ts));
+      setFpLastUpdated(ts);
+      setCampText(formatFpNews(newsData));
+      setFetchStatus("done");
+    } catch (e) {
       setFetchStatus("error");
     }
   };
+
+  useEffect(() => {
+    const ts = Number(localStorage.getItem("fp_cache_timestamp"));
+    const cachedNews = localStorage.getItem("fp_news_cache");
+    if (ts && cachedNews && Date.now() - ts < FP_CACHE_MS) {
+      try {
+        setCampText(formatFpNews(JSON.parse(cachedNews)));
+        setFpLastUpdated(ts);
+      } catch {
+        fetchFantasyProsData();
+      }
+    } else {
+      fetchFantasyProsData();
+    }
+  }, []);
 
   const fetchXHandles = async () => {
     try {
@@ -1344,17 +1387,19 @@ export default function App() {
           {activeTab==="camp"&&(
             <div>
               <div style={{fontSize:12,fontWeight:500,marginBottom:4}}>Camp intel</div>
-              <div style={{fontSize:10,color:"var(--text-secondary)",marginBottom:12}}>Fetch the latest notes from Rotowire and NFL.com, or paste your own. The AI analyzes everything and adjusts rankings, risk, reward, and safety scores automatically.</div>
+              <div style={{fontSize:10,color:"var(--text-secondary)",marginBottom:12}}>Latest player news and injury data from FantasyPros, cached for 24 hours and refreshed automatically. The AI analyzes everything and adjusts rankings, risk, reward, and safety scores automatically.</div>
 
-              <div style={{display:"flex",gap:8,marginBottom:10,alignItems:"center",flexWrap:"wrap"}}>
-                <button onClick={fetchCampNews} disabled={fetchStatus==="loading"} style={{fontSize:11,padding:"7px 14px",borderRadius:6,border:`1px solid var(--border)`,background:"var(--bg-card)",cursor:fetchStatus==="loading"?"wait":"pointer",color:"var(--text-primary)",fontWeight:500}}>
-                  {fetchStatus==="loading"?"Fetching...":"Fetch from Rotowire + NFL.com"}
+              <div style={{display:"flex",gap:8,marginBottom:6,alignItems:"center",flexWrap:"wrap"}}>
+                <button onClick={fetchFantasyProsData} disabled={fetchStatus==="loading"} style={{fontSize:11,padding:"7px 14px",borderRadius:6,border:`1px solid var(--border)`,background:"var(--bg-card)",cursor:fetchStatus==="loading"?"wait":"pointer",color:"var(--text-primary)",fontWeight:500}}>
+                  {fetchStatus==="loading"?"Refreshing...":"Refresh"}
                 </button>
-                {fetchStatus==="done"&&<span style={{fontSize:10,color:"var(--text-success)"}}>Fetched — review and hit Analyze</span>}
                 {fetchStatus==="error"&&<span style={{fontSize:10,color:"var(--text-danger)"}}>Fetch failed — paste notes manually below</span>}
-                {fetchStatus==="empty"&&<span style={{fontSize:10,color:"var(--text-warning)"}}>No results — paste notes manually</span>}
 
                 <button onClick={fetchXHandles} style={{fontSize:10,padding:"5px 10px",borderRadius:"var(--radius)",border:"0.5px solid var(--border)",background:"transparent",cursor:"pointer",color:"var(--text-secondary)"}}>X handles to follow</button>
+              </div>
+
+              <div style={{fontSize:9,color:"var(--text-muted)",marginBottom:10}}>
+                {fpLastUpdated?`Last updated: ${new Date(fpLastUpdated).toLocaleString()}`:"Not yet fetched"}
               </div>
 
               {xHandles&&(
