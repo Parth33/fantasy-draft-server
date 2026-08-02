@@ -37,6 +37,11 @@ const THEMES = {
     "--pos-te": "#f59e0b",
     "--pos-k": "#4b5563",
     "--pos-def": "#374151",
+    "--sig-green": "#34d399",
+    "--sig-blue": "#60a5fa",
+    "--sig-amber": "#fbbf24",
+    "--sig-orange": "#fb923c",
+    "--sig-red": "#f87171",
   },
   light: {
     "--bg-app": "#f0f4f8",
@@ -72,6 +77,11 @@ const THEMES = {
     "--pos-te": "#f59e0b",
     "--pos-k": "#6b7280",
     "--pos-def": "#4b5563",
+    "--sig-green": "#047857",
+    "--sig-blue": "#1d4ed8",
+    "--sig-amber": "#b45309",
+    "--sig-orange": "#c2410c",
+    "--sig-red": "#b91c1c",
   },
 };
 
@@ -227,10 +237,10 @@ function olineGrade(team, pos) {
 function olineColor(l) { return l==="Elite"?"#0e9f6e":l==="Strong"?"#1a56db":l==="Average"?"#c27803":l==="Below Avg"?"#e05a3a":"#9b1c1c"; }
 function defColor(l) { return (l==="Elite"||l==="Strong")?"#9b1c1c":l==="Average"?"#c27803":"#0e9f6e"; }
 function sosColor(g) { return (g==="A"||g==="A-"||g==="A+")?"#0e9f6e":(g==="B+"||g==="B")?"#1a56db":g==="B-"?"#c27803":"#9b1c1c"; }
-// Brighter, more saturated variants of the above for small colored text on dark rows (badges keep the dimmer fills above since they sit on solid backgrounds with white text)
-function olineTextColor(l) { return l==="Elite"?"#34d399":l==="Strong"?"#60a5fa":l==="Average"?"#fbbf24":l==="Below Avg"?"#fb923c":"#f87171"; }
-function defTextColor(l) { return (l==="Elite"||l==="Strong")?"#f87171":l==="Average"?"#fbbf24":"#34d399"; }
-function sosTextColor(g) { return (g==="A"||g==="A-"||g==="A+")?"#34d399":(g==="B+"||g==="B")?"#60a5fa":g==="B-"?"#fbbf24":"#f87171"; }
+// Theme-aware variants of the above for small colored text on rows (badges keep the dimmer fills above since they sit on solid backgrounds with white text)
+function olineTextColor(l) { return l==="Elite"?"var(--sig-green)":l==="Strong"?"var(--sig-blue)":l==="Average"?"var(--sig-amber)":l==="Below Avg"?"var(--sig-orange)":"var(--sig-red)"; }
+function defTextColor(l) { return (l==="Elite"||l==="Strong")?"var(--sig-red)":l==="Average"?"var(--sig-amber)":"var(--sig-green)"; }
+function sosTextColor(g) { return (g==="A"||g==="A-"||g==="A+")?"var(--sig-green)":(g==="B+"||g==="B")?"var(--sig-blue)":g==="B-"?"var(--sig-amber)":"var(--sig-red)"; }
 function riskColor(r) { return r==="Low"?"#0e9f6e":r==="Slight"?"#1a56db":r==="Medium"?"#c27803":"#9b1c1c"; }
 function safetyColor(s) { return (s==="Very Safe"||s==="Safe")?"#0e9f6e":s==="Solid"?"#1a56db":s==="Okay"?"#c27803":"#9b1c1c"; }
 function rewardColor(r) { return r==="High"?"#0e9f6e":r==="Solid"?"#1a56db":"#c27803"; }
@@ -934,6 +944,7 @@ export default function App() {
           --text-accent: #58a6ff; --text-success: #3fb950; --text-warning: #d29922; --text-danger: #f85149;
           --tab-active-border: #58a6ff;
           --pos-qb: #7c3aed; --pos-rb: #0369a1; --pos-wr: #0f766e; --pos-te: #f59e0b; --pos-k: #4b5563; --pos-def: #374151;
+          --sig-green: #34d399; --sig-blue: #60a5fa; --sig-amber: #fbbf24; --sig-orange: #fb923c; --sig-red: #f87171;
         }
         * { box-sizing: border-box; }
         input, textarea, button { font-family: inherit; }
@@ -1158,7 +1169,7 @@ export default function App() {
                                   <div key={p.id} onClick={()=>setSelected(p)} title={`${p.name} (${p.team})`} style={{display:"flex",alignItems:"baseline",gap:3,padding:"2px 5px",cursor:"pointer",minWidth:0}}>
                                     <span style={{fontSize:9,fontWeight:700,color:"var(--text-secondary)",width:13,flexShrink:0,textAlign:"right"}}>{p.rank}</span>
                                     <span style={{fontSize:9,fontWeight:600,color:"var(--text-primary)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1,minWidth:0}}>{p.name}</span>
-                                    <span style={{fontSize:8,color:"var(--text-muted)",flexShrink:0}}>{p.team}</span>
+                                    <span style={{fontSize:8,fontWeight:600,color:"var(--text-secondary)",flexShrink:0}}>{p.team}</span>
                                   </div>
                                 ))}
                               </div>
