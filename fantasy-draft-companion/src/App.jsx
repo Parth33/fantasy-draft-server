@@ -1098,19 +1098,19 @@ export default function App() {
                 )}
 
                 {/* My roster — two horizontal rows of equal-width slot cards, wraps if too narrow */}
-                <div style={{flex:1,minWidth:0,minHeight:130,background:"var(--bg-card)",border:`1px solid var(--border)`,borderRadius:8,padding:"5px 8px",lineHeight:1.3}}>
+                <div style={{flex:1,minWidth:0,maxHeight:180,overflow:"hidden",background:"var(--bg-card)",border:`1px solid var(--border)`,borderRadius:8,padding:"5px 8px",lineHeight:1.3}}>
                   <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
                     <span style={{fontSize:8,fontWeight:700,color:"var(--text-secondary)",textTransform:"uppercase",letterSpacing:"0.08em"}}>My Roster</span>
                     {byeStackSummary.length>0&&<span style={{fontSize:9,fontWeight:600,color:"var(--text-warning)"}}>Bye stack: {byeStackSummary.join(", ")}</span>}
                   </div>
                   {[[0,4,5,1,2,3,6,7,8,9],[10,11,12,13,14]].map((idxRow,ri)=>(
-                    <div key={ri} style={{display:"grid",gridTemplateColumns:`repeat(${idxRow.length},1fr)`,gap:6,marginBottom:ri===0?8:0}}>
+                    <div key={ri} style={{display:"grid",gridTemplateColumns:`repeat(${idxRow.length},1fr)`,gap:6,marginBottom:ri===0?4:0}}>
                       {idxRow.map(i=>{
                         const slot=ROSTER_SLOTS[i],p=roster[i];
                         return (
-                          <div key={i} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,background:"var(--bg-row)",border:`1px solid var(--border)`,borderRadius:5,padding:"8px 6px",overflow:"hidden"}}>
-                            <span style={{fontSize:13,fontWeight:800,color:POS_COLORS[slot]||"var(--text-muted)",letterSpacing:"0.02em"}}>{slot}</span>
-                            <span style={{fontSize:13,fontWeight:700,color:p?"var(--text-primary)":"var(--text-muted)",width:"100%",textAlign:"center",lineHeight:1.2,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{p?p.name:"—"}</span>
+                          <div key={i} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,background:"var(--bg-row)",border:`1px solid var(--border)`,borderRadius:4,padding:"4px 6px",overflow:"hidden"}}>
+                            <span style={{fontSize:13,fontWeight:600,color:POS_COLORS[slot]||"var(--text-muted)",letterSpacing:"0.02em"}}>{slot}</span>
+                            <span style={{fontSize:13,fontWeight:700,color:p?"var(--text-primary)":"var(--text-muted)",width:"100%",textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p?p.name:"—"}</span>
                           </div>
                         );
                       })}
