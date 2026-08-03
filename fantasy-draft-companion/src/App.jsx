@@ -1401,13 +1401,17 @@ export default function App() {
                                   <span style={{fontSize:8,fontWeight:800,color:TIER_TEXT_COLORS[tier]||"var(--text-muted)",textTransform:"uppercase",letterSpacing:"0.03em",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0,flex:1}}>{label}</span>
                                   {cliffTint&&<span style={{fontSize:8,fontWeight:800,color:"var(--text-warning)",background:"var(--bg-warn)",border:"1px solid var(--text-warning)",borderRadius:3,padding:"1px 4px",whiteSpace:"nowrap",flexShrink:0,letterSpacing:"0.02em"}}>⚠ {ps.length} left</span>}
                                 </div>
-                                {ps.map(p=>(
-                                  <div key={p.id} onClick={()=>setSelected(p)} title={`${p.name} (${p.team})`} style={{display:"flex",alignItems:"baseline",gap:3,padding:"2px 5px",cursor:"pointer",minWidth:0}}>
-                                    <span style={{fontSize:9,fontWeight:700,color:"var(--text-secondary)",width:13,flexShrink:0,textAlign:"right"}}>{p.rank}</span>
-                                    <span style={{fontSize:9,fontWeight:600,color:"var(--text-primary)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1,minWidth:0}}>{p.name}</span>
-                                    <span style={{fontSize:8,fontWeight:600,color:"var(--text-secondary)",flexShrink:0}}>{p.team}</span>
-                                  </div>
-                                ))}
+                                {ps.map((p,pi)=>{
+                                  const isRec=recs.some(r=>r.id===p.id);
+                                  const zebra=pi%2===1?"var(--bg-row-alt)":"var(--bg-row)";
+                                  return (
+                                    <div key={p.id} onClick={()=>setSelected(p)} title={`${p.name} (${p.team})`} className="player-row" style={{display:"flex",alignItems:"baseline",gap:3,padding:"2px 5px",cursor:"pointer",minWidth:0,background:isRec?"var(--bg-row-rec)":zebra}}>
+                                      <span style={{fontSize:9,fontWeight:700,color:"var(--text-secondary)",minWidth:32,flexShrink:0,textAlign:"right"}}>{p.rank}</span>
+                                      <span style={{fontSize:9,fontWeight:600,color:"var(--text-primary)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1,minWidth:0}}>{p.name}</span>
+                                      <span style={{fontSize:8,fontWeight:600,color:"var(--text-secondary)",flexShrink:0}}>{p.team}</span>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             );
                           })}
