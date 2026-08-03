@@ -96,8 +96,8 @@ const THEMES = {
 const POS_COLORS = { QB: "var(--pos-qb)", RB: "var(--pos-rb)", WR: "var(--pos-wr)", TE: "var(--pos-te)", K: "var(--pos-k)", DEF: "var(--pos-def)" };
 
 // Columns: rank, pos, player (name + inline team), bye, o-line, defense, sos, notes (tag chips), actions
-const ROW_COLS = "28px 36px 200px 44px 92px 112px 58px 108px 78px";
-const ROW_COLS_COMPACT = "22px 28px 210px 40px 72px 88px 46px 90px 76px";
+const ROW_COLS = "28px 36px 200px 44px 92px 112px 58px 140px 78px";
+const ROW_COLS_COMPACT = "22px 28px 210px 40px 72px 88px 46px 140px 76px";
 
 // Consistent color per camp-intel tag type — green for strong buys, red for risk/avoid,
 // amber for upside-but-unproven, blue for everything else (role/usage notes).
@@ -1111,7 +1111,7 @@ export default function App() {
           {s?<span style={{fontSize:compact?9:10,color:sosTextColor(s.e)}}>SOS {s.e}</span>:<span/>}
           <div style={{display:"flex",flexWrap:"wrap",gap:3,maxHeight:compact?15:17,overflow:"hidden"}}>
             {(p.tags||[]).slice(0,3).map(t=>(
-              <span key={t} style={{fontSize:compact?7:8,fontWeight:700,padding:"1px 4px",borderRadius:3,background:`${tagColor(t)}26`,color:tagColor(t),border:`1px solid ${tagColor(t)}55`,whiteSpace:"nowrap"}}>{t}</span>
+              <span key={t} style={{fontSize:compact?7:8,fontWeight:700,padding:"2px 6px",borderRadius:3,background:`${tagColor(t)}26`,color:tagColor(t),border:`1px solid ${tagColor(t)}55`,whiteSpace:"nowrap"}}>{t}</span>
             ))}
           </div>
           {isDrafted?(
