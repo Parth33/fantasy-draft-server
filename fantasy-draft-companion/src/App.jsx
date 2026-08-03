@@ -1381,17 +1381,22 @@ export default function App() {
                   <div style={{display:"grid",gridTemplateColumns:"repeat(4, minmax(0, 1fr))",gap:4}}>
                     {["QB","RB","WR","TE"].map(pos=>{
                       const byTier=tiersByPos[pos]||{};
-                      const tierNums=Object.keys(byTier).map(Number).sort((a,b)=>a-b);
+                      // Raw tier numbers come from the overall consensus rankings, so a position's
+                      // best players may not land in raw Tier 1 (e.g. QB1 might be overall Tier 3).
+                      // Remap to sequential display tiers per position so Tier 1 is always shown first
+                      // and no tier — including ones with just a single player — is skipped.
+                      const rawTiers=Object.keys(byTier).map(Number).sort((a,b)=>a-b);
                       const color=POS_COLORS[pos];
                       return (
                         <div key={pos} style={{border:"1px solid var(--border)",borderRadius:8,overflow:"hidden",background:"var(--bg-card)",minWidth:0}}>
                           <div style={{padding:"6px 4px",background:color,color:"#fff",fontSize:11,fontWeight:800,textAlign:"center",letterSpacing:"0.06em"}}>{pos}</div>
-                          {tierNums.map((tier,ti)=>{
-                            const ps=byTier[tier];
+                          {rawTiers.map((rawTier,ti)=>{
+                            const tier=ti+1;
+                            const ps=byTier[rawTier];
                             const cliffTint=ps.length<=2;
                             const label=`Tier ${tier}${tier===1?" - Elite":""}`;
                             return (
-                              <div key={tier} style={{borderTop:ti>0?"1px solid var(--border)":"none"}}>
+                              <div key={rawTier} style={{borderTop:ti>0?"1px solid var(--border)":"none"}}>
                                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:3,padding:"3px 5px",minWidth:0}}>
                                   <span style={{fontSize:8,fontWeight:800,color:TIER_TEXT_COLORS[tier]||"var(--text-muted)",textTransform:"uppercase",letterSpacing:"0.03em",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0,flex:1}}>{label}</span>
                                   {cliffTint&&<span style={{fontSize:8,fontWeight:800,color:"var(--text-warning)",background:"var(--bg-warn)",border:"1px solid var(--text-warning)",borderRadius:3,padding:"1px 4px",whiteSpace:"nowrap",flexShrink:0,letterSpacing:"0.02em"}}>⚠ {ps.length} left</span>}
