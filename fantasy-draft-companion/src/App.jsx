@@ -1405,7 +1405,7 @@ export default function App() {
                                   const isRec=recs.some(r=>r.id===p.id);
                                   const zebra=pi%2===1?"var(--bg-row-alt)":"var(--bg-row)";
                                   return (
-                                    <div key={p.id} onClick={()=>setSelected(p)} title={`${p.name} (${p.team})`} className="player-row" style={{display:"flex",alignItems:"baseline",gap:3,padding:"2px 5px",cursor:"pointer",minWidth:0,background:isRec?"var(--bg-row-rec)":zebra}}>
+                                    <div key={p.id} onClick={()=>setSelected(p)} title={`${p.name} (${p.team})`} className="player-row" style={{display:"flex",alignItems:"baseline",gap:3,padding:"2px 5px",cursor:"pointer",minWidth:0,background:isRec?"#1a2a4a":zebra,borderLeft:isRec?"3px solid #3b82f6":"3px solid transparent"}}>
                                       <span style={{fontSize:9,fontWeight:700,color:"var(--text-secondary)",minWidth:32,flexShrink:0,textAlign:"right"}}>{p.rank}</span>
                                       <span style={{fontSize:9,fontWeight:600,color:"var(--text-primary)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1,minWidth:0}}>{p.name}</span>
                                       <span style={{fontSize:8,fontWeight:600,color:"var(--text-secondary)",flexShrink:0}}>{p.team}</span>
