@@ -1386,6 +1386,10 @@ export default function App() {
                       // Remap to sequential display tiers per position so Tier 1 is always shown first
                       // and no tier — including ones with just a single player — is skipped.
                       const rawTiers=Object.keys(byTier).map(Number).sort((a,b)=>a-b);
+                      if (pos==="QB") {
+                        console.log("[By tier debug] QB raw tier values:", rawTiers);
+                        console.log("[By tier debug] QB remapped display tiers:", rawTiers.map((rawTier,ti)=>({rawTier, displayTier:ti+1, players:byTier[rawTier].map(p=>p.name)})));
+                      }
                       const color=POS_COLORS[pos];
                       return (
                         <div key={pos} style={{border:"1px solid var(--border)",borderRadius:8,overflow:"hidden",background:"var(--bg-card)",minWidth:0}}>
