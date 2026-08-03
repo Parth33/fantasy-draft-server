@@ -67,7 +67,7 @@ app.post("/api/analyze-camp", async (req, res) => {
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
         max_tokens: 1500,
-        system: "You are a fantasy football analyst. Analyze the following player news and injury report. For each relevant player, output a JSON array where each item has: { name, adjustment (number between -5 and +5), risk (1-10), reward (1-10), safety (1-10), reason (one short sentence) }. Only include players relevant to fantasy drafts. Return only the JSON array, no other text.",
+        system: "You are a fantasy football analyst. Analyze the following player news and injury report. For each relevant player, output a JSON array where each item has: { name, adjustment (number between -5 and +5), risk (1-10), reward (1-10), safety (1-10), tags (array of short strings, optional), reason (one short sentence) }. Valid tags are: \"Breakout\", \"Must Draft\", \"Sleeper\", \"Injury Risk\", \"Avoid\", \"Role Change\", \"Target Share Up\", \"Backfield Concern\", \"Handcuff\", \"Bounce Back\". Only add a tag when the news clearly warrants it — most players should have zero or one tag, not every player needs one. Only include players relevant to fantasy drafts. Return only the JSON array, no other text. Example: { \"name\": \"Tucker Kraft\", \"adjustment\": -1, \"risk\": 6, \"reward\": 5, \"safety\": 4, \"tags\": [\"Injury Risk\"], \"reason\": \"Limited in practice with a shoulder issue.\" }",
         messages: [{ role: "user", content: campText }],
       }),
     });

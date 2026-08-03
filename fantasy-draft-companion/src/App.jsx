@@ -95,9 +95,20 @@ const THEMES = {
 
 const POS_COLORS = { QB: "var(--pos-qb)", RB: "var(--pos-rb)", WR: "var(--pos-wr)", TE: "var(--pos-te)", K: "var(--pos-k)", DEF: "var(--pos-def)" };
 
-// Columns: rank, pos, player (name + inline team), bye, o-line, defense, sos, safety, actions
-const ROW_COLS = "28px 36px 200px 44px 92px 112px 58px 58px 78px";
-const ROW_COLS_COMPACT = "22px 28px 210px 40px 72px 88px 46px 48px 76px";
+// Columns: rank, pos, player (name + inline team), bye, o-line, defense, sos, notes (tag chips), actions
+const ROW_COLS = "28px 36px 200px 44px 92px 112px 58px 108px 78px";
+const ROW_COLS_COMPACT = "22px 28px 210px 40px 72px 88px 46px 90px 76px";
+
+// Consistent color per camp-intel tag type — green for strong buys, red for risk/avoid,
+// amber for upside-but-unproven, blue for everything else (role/usage notes).
+const TAG_COLORS = {
+  "Must Draft": "#0e9f6e",
+  "Sleeper": "#c27803",
+  "Breakout": "#c27803",
+  "Injury Risk": "#9b1c1c",
+  "Avoid": "#9b1c1c",
+};
+function tagColor(tag) { return TAG_COLORS[tag] || "#1a56db"; }
 
 const POSITIONS = ["ALL", "QB", "RB", "WR", "TE", "K", "DEF"];
 const TIER_COLORS = { 1: "#1a56db", 2: "#0e9f6e", 3: "#c27803", 4: "#9b1c1c" };
@@ -1014,15 +1025,19 @@ export default function App() {
       const data = await res.json();
       const adjs = data.adjustments || [];
       const adjMap={};
-      adjs.forEach(a=>{adjMap[a.name]={adj:a.adjustment, signal:a.adjustment>0?"up":a.adjustment<0?"down":"flat",
-        summary:a.reason, risk:a.risk, reward:a.reward, safety:a.safety};});
+      adjs.forEach(a=>{
+        const entry={adj:a.adjustment, signal:a.adjustment>0?"up":a.adjustment<0?"down":"flat",
+          summary:a.reason, risk:a.risk, reward:a.reward, safety:a.safety, tags:a.tags||[]};
+        adjMap[a.name]=entry;
+        if (a.id!=null) adjMap[a.id]=entry;
+      });
       setCampAdjs(adjMap);
       setPlayers(prev=>{
         const updated = prev.map(p=>{
-          const a=adjMap[p.name];
+          const a=adjMap[p.name]||adjMap[p.id];
           if(!a) return p;
           return {...p, campAdj:a.adj, campSignal:a.signal, campSummary:a.summary,
-            risk:a.risk||p.risk, reward:a.reward||p.reward, safety:a.safety||p.safety};
+            risk:a.risk||p.risk, reward:a.reward||p.reward, safety:a.safety||p.safety, tags:a.tags?.length?a.tags:p.tags};
         });
         const scores = updated.map(p=>({...p, _s:(150-p.rank)*2+(p.campAdj||0)*3}));
         scores.sort((a,b)=>b._s-a._s);
@@ -1093,7 +1108,11 @@ export default function App() {
             )
           ):<span/>}
           {s?<span style={{fontSize:compact?9:10,color:sosTextColor(s.e)}}>SOS {s.e}</span>:<span/>}
-          <span style={{fontSize:compact?9:10,fontWeight:600,color:safetyTextColor(p.safety),whiteSpace:"nowrap"}}>{scoreLabel(p.safety)}</span>
+          <div style={{display:"flex",flexWrap:"wrap",gap:3,maxHeight:compact?15:17,overflow:"hidden"}}>
+            {(p.tags||[]).slice(0,3).map(t=>(
+              <span key={t} style={{fontSize:compact?7:8,fontWeight:700,padding:"1px 4px",borderRadius:3,background:`${tagColor(t)}26`,color:tagColor(t),border:`1px solid ${tagColor(t)}55`,whiteSpace:"nowrap"}}>{t}</span>
+            ))}
+          </div>
           {isDrafted?(
             <span style={{fontSize:8,fontWeight:800,padding:"3px 7px",borderRadius:"var(--radius)",border:"1px solid var(--text-muted)",color:"var(--text-muted)",whiteSpace:"nowrap",textAlign:"center",letterSpacing:"0.04em"}}>DRAFTED</span>
           ):(
@@ -1369,7 +1388,7 @@ export default function App() {
                   <div style={{fontSize:13,fontWeight:600,color:"var(--text-primary)",marginBottom:6,paddingBottom:6,borderBottom:"0.5px solid var(--border)"}}>Overall rankings</div>
                   <div style={{border:"1px solid var(--border)",borderRadius:8,overflow:"hidden"}}>
                     <div style={{display:"grid",gridTemplateColumns:ROW_COLS,gap:8,padding:"7px 12px",fontSize:10,fontWeight:700,color:"var(--text-secondary)",textTransform:"uppercase",letterSpacing:"0.04em",background:"var(--bg-card)",borderBottom:"1px solid var(--border)"}}>
-                      <span style={{textAlign:"right"}}>#</span><span>Pos</span><span>Player</span><span>Bye</span><span>O-Line</span><span>Defense</span><span>SOS</span><span>Safety</span><span></span>
+                      <span style={{textAlign:"right"}}>#</span><span>Pos</span><span>Player</span><span>Bye</span><span>O-Line</span><span>Defense</span><span>SOS</span><span>Notes</span><span></span>
                     </div>
                     {sorted.map((p,i)=><PlayerRow key={p.id} p={p} index={i}/>)}
                   </div>
