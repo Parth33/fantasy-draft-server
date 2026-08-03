@@ -1024,6 +1024,7 @@ export default function App() {
       if (!res.ok) throw new Error(`analyze-camp responded with ${res.status}`);
       const data = await res.json();
       const adjs = data.adjustments || [];
+      console.log("[Camp analysis] raw adjustments from /api/analyze-camp:", adjs);
       const adjMap={};
       adjs.forEach(a=>{
         const entry={adj:a.adjustment, signal:a.adjustment>0?"up":a.adjustment<0?"down":"flat",
