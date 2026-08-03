@@ -1066,7 +1066,7 @@ export default function App() {
     const [hoverMine, setHoverMine] = useState(false);
     const [hoverGone, setHoverGone] = useState(false);
     return (
-      <div onClick={()=>setSelected(p)} className="player-row" style={{background:isSel?"var(--bg-row-sel)":isRec?"var(--bg-row-rec)":zebra,boxShadow:isSel?"inset 0 0 0 1px var(--border-accent)":"none",borderBottom:"1px solid var(--border)",borderLeft:`4px solid ${POS_COLORS[p.pos]||"#555"}`,cursor:"pointer",transition:"background 0.1s, filter 0.1s",opacity:isDrafted?0.45:1}}>
+      <div onClick={()=>setSelected(p)} className="player-row" style={{background:isSel?"var(--bg-row-sel)":isRec?"#1e3a5f":zebra,boxShadow:isSel?"inset 0 0 0 1px var(--border-accent)":"none",borderBottom:"1px solid var(--border)",borderLeft:isRec?"3px solid #60a5fa":`4px solid ${POS_COLORS[p.pos]||"#555"}`,cursor:"pointer",transition:"background 0.1s, filter 0.1s",opacity:isDrafted?0.45:1}}>
         <div style={{display:"grid",gridTemplateColumns:compact?ROW_COLS_COMPACT:ROW_COLS,gap:compact?3:8,alignItems:"center",padding:compact?"6px 6px":"8px 12px",fontSize:compact?11:12}}>
           <span style={{color:"var(--text-secondary)",fontWeight:700,textAlign:"right"}}>{p.rank}</span>
           <span style={{fontSize:compact?9:10,fontWeight:800,padding:"2px 5px",borderRadius:4,background:POS_COLORS[p.pos]||"#555",color:"#fff",textAlign:"center",letterSpacing:"0.04em",border:"1px solid rgba(255,255,255,0.3)"}}>{p.pos}</span>
