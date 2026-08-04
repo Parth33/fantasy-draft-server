@@ -1009,17 +1009,8 @@ export default function App() {
   };
 
   const fetchXTweets = async () => {
-    const cachedAt = Number(localStorage.getItem("x_tweets_cached_at"));
-    const cached = localStorage.getItem("x_tweets_cache");
-    const sixHours = 6 * 60 * 60 * 1000;
-    if (cachedAt && cached && Date.now() - cachedAt < sixHours) {
-      try {
-        const tweets = JSON.parse(cached);
-        appendXTweets(tweets);
-        setXTweetStatus("done");
-        return;
-      } catch {}
-    }
+    localStorage.removeItem("x_tweets_cache");
+    localStorage.removeItem("x_tweets_cached_at");
     setXTweetStatus("loading");
     try {
       const res = await fetch(`${SERVER}/api/x-scrape`);
