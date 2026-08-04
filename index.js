@@ -2,16 +2,12 @@ const express = require("express");
 const cors = require("cors");
 const fetch = require("node-fetch");
 const xml2js = require("xml2js");
-const { scrapeXAccounts } = require("./scraper/apifyScraper");
 
 const app = express();
 const PORT = process.env.PORT || 8080;
 
 app.use(cors());
 app.use(express.json());
-
-let xTweetsCache = null;
-let xTweetsCachedAt = null;
 
 // ─── Health check ────────────────────────────────────────────────────────────
 app.get("/api/health", (req, res) => {
@@ -57,7 +53,7 @@ app.get("/api/fantasypros/injuries", async (req, res) => {
   }
 });
 
-// ─── Camp intel analysis (Anthropic proxy) ────────────────────────────────────
+// ─── Intel Drop analysis (Anthropic proxy) ────────────────────────────────────
 app.post("/api/analyze-camp", async (req, res) => {
   try {
     const { campText } = req.body;
@@ -71,7 +67,7 @@ app.post("/api/analyze-camp", async (req, res) => {
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
         max_tokens: 1500,
-        system: "You are a fantasy football analyst. Analyze the following player news and injury report. For each relevant player, output a JSON array where each item has: { name, adjustment (number between -5 and +5), risk (1-10), reward (1-10), safety (1-10), tags, reason (one short sentence) }. You MUST include a tags array on every player object. If no tag applies, use an empty array []. Valid tags are: Must Draft, Sleeper, Breakout, Injury Risk, Avoid, Role Change, Target Share Up, Backfield Concern, Handcuff, Bounce Back. Example response: [{ name: 'Tucker Kraft', adjustment: -1, tags: ['Injury Risk'], reason: 'Returning from ACL' }]. Only include players relevant to fantasy drafts. Return only the JSON array, no other text.",
+        system: "You are a fantasy football analyst. Analyze the following mix of player news, injury reports, and analyst commentary. For each player clearly discussed, output a JSON array where each item has: { name, adjustment (number -5 to +5), tags (array), reason (one short sentence) }. Tags should describe the player's ROLE and analyst SENTIMENT. Valid tags: Workhorse, Committee Back, WR1 Role, Target Hog, Depth Only, Handcuff, Boom/Bust, Analyst Favorite, Analyst Fade, Injury Risk, Breakout, Bounce Back, Rookie Riser, Aging Concern, Situation Change. Apply tags only when the text clearly supports them. Most players get 0-2 tags. Return only the JSON array.",
         messages: [{ role: "user", content: campText }],
       }),
     });
@@ -292,23 +288,6 @@ app.get("/api/camp-news", async (req, res) => {
   } catch (err) {
     console.error("Camp news error:", err);
     res.status(500).json({ success: false, error: err.message, notes: [] });
-  }
-});
-
-// ─── X (Twitter) scrape via Apify ─────────────────────────────────────────────
-app.get("/api/x-scrape", async (req, res) => {
-  try {
-    const startDate = req.query.startDate || "2026-07-21";
-    console.log('Starting X scrape via Apify...');
-    const tweets = await scrapeXAccounts(startDate);
-    console.log('X scrape complete, tweet count:', tweets.length);
-    xTweetsCache = tweets;
-    xTweetsCachedAt = Date.now();
-    res.json({ tweets, cachedAt: xTweetsCachedAt, fromCache: false });
-  } catch (err) {
-    console.error("X scrape full error:", err.stack || err);
-    console.error("X scrape error:", err);
-    res.status(500).json({ error: err.message });
   }
 });
 

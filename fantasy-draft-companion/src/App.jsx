@@ -682,10 +682,7 @@ export default function App() {
   const [campLastRun, setCampLastRun] = useState(null);
   const [fetchStatus, setFetchStatus] = useState("idle");
   const [fpLastUpdated, setFpLastUpdated] = useState(null);
-  const [xTweetStatus, setXTweetStatus] = useState("idle");
-  const [xTweetCount, setXTweetCount] = useState(null);
   const [recentPicks, setRecentPicks] = useState([]);
-  const [xHandles, setXHandles] = useState(null);
   const [theme, setTheme] = useState("dark");
   const [importInfo, setImportInfo] = useState(null);
   const [importError, setImportError] = useState(null);
@@ -1002,38 +999,6 @@ export default function App() {
     }
   }, []);
 
-  const appendXTweets = (tweets) => {
-    const formatted = tweets.map(t => `@${t.handle}: ${t.text}`).join("\n");
-    setCampText(prev => [prev, formatted].filter(Boolean).join("\n\n"));
-    setXTweetCount(tweets.length);
-  };
-
-  const fetchXTweets = async () => {
-    localStorage.removeItem("x_tweets_cache");
-    localStorage.removeItem("x_tweets_cached_at");
-    setXTweetStatus("loading");
-    try {
-      const res = await fetch(`${SERVER}/api/x-scrape`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || `x-scrape responded with ${res.status}`);
-      const tweets = data.tweets || [];
-      localStorage.setItem("x_tweets_cache", JSON.stringify(tweets));
-      localStorage.setItem("x_tweets_cached_at", String(data.cachedAt || Date.now()));
-      appendXTweets(tweets);
-      setXTweetStatus("done");
-    } catch (e) {
-      setXTweetStatus("error");
-    }
-  };
-
-  const fetchXHandles = async () => {
-    try {
-      const res = await fetch(`${SERVER}/api/x-handles`);
-      const data = await res.json();
-      setXHandles(data);
-    } catch(e) {}
-  };
-
   const runCampAnalysis = async () => {
     console.log("Analyze clicked, campText:", campText);
     if (!campText.trim()) {
@@ -1250,10 +1215,10 @@ export default function App() {
 
       {/* Tabs */}
       <div style={{display:"flex",borderBottom:`1px solid var(--border)`,background:"var(--bg-header)",padding:"0 12px"}}>
-        {[{k:"board",l:"Draft Board"},{k:"roster",l:`Roster (${rosterCount})`},{k:"odef",l:"O-Line / Defense"},{k:"camp",l:"Camp Intel"},{k:"mock",l:"Mock Draft"}].map(t=>(
+        {[{k:"board",l:"Draft Board"},{k:"roster",l:`Roster (${rosterCount})`},{k:"odef",l:"O-Line / Defense"},{k:"camp",l:"Intel Drop"},{k:"mock",l:"Mock Draft"}].map(t=>(
           <button key={t.k} onClick={()=>setActiveTab(t.k)} style={{padding:"6px 12px",fontSize:11,border:"none",borderBottom:activeTab===t.k?`2px solid var(--tab-active-border)`:"2px solid transparent",background:"transparent",cursor:"pointer",color:activeTab===t.k?"var(--text-accent)":"var(--text-secondary)",fontWeight:activeTab===t.k?600:400,letterSpacing:"0.01em"}}>{t.l}</button>
         ))}
-        {campStatus==="done"&&<span style={{fontSize:9,padding:"2px 7px",borderRadius:"var(--radius)",background:"var(--bg-success)",color:"var(--text-success)",alignSelf:"center",marginLeft:4}}>Camp applied</span>}
+        {campStatus==="done"&&<span style={{fontSize:9,padding:"2px 7px",borderRadius:"var(--radius)",background:"var(--bg-success)",color:"var(--text-success)",alignSelf:"center",marginLeft:4}}>Intel applied</span>}
       </div>
 
       {(importInfo||importError)&&(
@@ -1275,7 +1240,7 @@ export default function App() {
             <span style={{color:"var(--text-danger)"}}>Notes import failed: {notesImportError}</span>
           ):(
             <span style={{color:"var(--text-success)"}}>
-              {notesImportInfo.count} player notes loaded into Camp Intel — {notesImportInfo.timestamp.toLocaleTimeString()}
+              {notesImportInfo.count} player notes loaded into Intel Drop — {notesImportInfo.timestamp.toLocaleTimeString()}
             </span>
           )}
           <button onClick={()=>{setNotesImportInfo(null);setNotesImportError(null);}} style={{marginLeft:"auto",background:"none",border:"none",cursor:"pointer",color:"var(--text-muted)",fontSize:11}}>✕</button>
@@ -1531,43 +1496,20 @@ export default function App() {
 
           {activeTab==="camp"&&(
             <div>
-              <div style={{fontSize:12,fontWeight:500,marginBottom:4}}>Camp intel</div>
-              <div style={{fontSize:10,color:"var(--text-primary)",marginBottom:12}}>Latest player news and injury data from FantasyPros, cached for 24 hours and refreshed automatically. The AI analyzes everything and adjusts rankings, risk, reward, and safety scores automatically.</div>
+              <div style={{fontSize:12,fontWeight:500,marginBottom:10}}>Intel Drop</div>
 
-              <div style={{display:"flex",gap:8,marginBottom:6,alignItems:"center",flexWrap:"wrap"}}>
+              <div style={{display:"flex",gap:8,marginBottom:16,alignItems:"center",flexWrap:"wrap"}}>
                 <button onClick={fetchFantasyProsData} disabled={fetchStatus==="loading"} style={{fontSize:11,padding:"7px 14px",borderRadius:6,border:`1px solid var(--border)`,background:"var(--bg-card)",cursor:fetchStatus==="loading"?"wait":"pointer",color:"var(--text-primary)",fontWeight:500}}>
-                  {fetchStatus==="loading"?"Refreshing...":"Refresh"}
+                  {fetchStatus==="loading"?"Refreshing...":"Refresh FantasyPros"}
                 </button>
                 {fetchStatus==="error"&&<span style={{fontSize:10,color:"var(--text-danger)"}}>Fetch failed — paste notes manually below</span>}
-
-                <button onClick={fetchXTweets} disabled={xTweetStatus==="loading"} style={{fontSize:11,padding:"7px 14px",borderRadius:6,border:`1px solid var(--border)`,background:"var(--bg-card)",cursor:xTweetStatus==="loading"?"wait":"pointer",color:"var(--text-primary)",fontWeight:500}}>
-                  {xTweetStatus==="loading"?"Fetching tweets... this takes a few minutes":"Fetch X Intel"}
-                </button>
-                {xTweetStatus==="error"&&<span style={{fontSize:10,color:"var(--text-danger)"}}>X fetch failed</span>}
-                {xTweetStatus==="done"&&xTweetCount!==null&&<span style={{fontSize:10,color:"var(--text-primary)"}}>{xTweetCount} tweets loaded from X</span>}
-
-                <button onClick={fetchXHandles} style={{fontSize:10,padding:"5px 10px",borderRadius:"var(--radius)",border:"0.5px solid var(--border)",background:"transparent",cursor:"pointer",color:"var(--text-primary)"}}>X handles to follow</button>
+                <span style={{fontSize:11,color:"var(--text-primary)"}}>
+                  {fpLastUpdated?`Last updated: ${new Date(fpLastUpdated).toLocaleString()}`:"Not yet fetched"}
+                </span>
               </div>
 
-              <div style={{fontSize:13,color:"var(--text-primary)",fontWeight:500,marginBottom:10}}>
-                {fpLastUpdated?`Last updated: ${new Date(fpLastUpdated).toLocaleString()}`:"Not yet fetched"}
-              </div>
-
-              {xHandles&&(
-                <div style={{marginBottom:12,background:"var(--surface-1)",border:"0.5px solid var(--border)",borderRadius:12,padding:12}}>
-                  <div style={{fontSize:10,fontWeight:500,marginBottom:6}}>Key accounts to check on draft morning</div>
-                  <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-                    {xHandles.leagueWide.map(h=>(
-                      <div key={h.handle} style={{background:"var(--surface-2)",borderRadius:"var(--radius)",padding:"4px 8px",fontSize:9,border:"0.5px solid var(--border)"}}>
-                        <span style={{fontWeight:500,color:"var(--text-accent)"}}>{h.handle}</span>
-                        <span style={{color:"var(--text-primary)",marginLeft:4}}>{h.focus}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <textarea value={campText} onChange={e=>setCampText(e.target.value)} placeholder="Paste training camp notes here, or hit Fetch above. One player per line works well." style={{width:"100%",minHeight:180,fontSize:10,fontFamily:"system-ui,sans-serif",lineHeight:1.6,resize:"vertical",boxSizing:"border-box",padding:10,borderRadius:6,border:`1px solid var(--border)`,background:"var(--bg-row)",color:"var(--text-primary)"}}/>
+              <div style={{fontSize:10,color:"var(--text-primary)",marginBottom:4}}>Paste anything — analyst articles, tweets, camp reports, Reddit threads, podcast notes. The AI will extract player intel and tag them.</div>
+              <textarea value={campText} onChange={e=>setCampText(e.target.value)} placeholder="FantasyPros news/injuries load here automatically — paste additional text below them." style={{width:"100%",minHeight:260,fontSize:10,fontFamily:"system-ui,sans-serif",lineHeight:1.6,resize:"vertical",boxSizing:"border-box",padding:10,borderRadius:6,border:`1px solid var(--border)`,background:"var(--bg-row)",color:"var(--text-primary)"}}/>
 
               <div style={{display:"flex",gap:8,marginTop:8,alignItems:"center"}}>
                 <button onClick={runCampAnalysis} disabled={campStatus==="loading"||!campText.trim()} style={{fontSize:11,padding:"7px 16px",borderRadius:6,border:`2px solid var(--border-accent)`,background:"var(--bg-accent-soft)",color:"var(--text-accent)",cursor:campStatus==="loading"?"wait":"pointer",fontWeight:700}}>
@@ -1582,12 +1524,14 @@ export default function App() {
                   <div style={{fontSize:11,fontWeight:500,marginBottom:6}}>Adjustments applied to rankings</div>
                   <div style={{display:"flex",flexDirection:"column",gap:4}}>
                     {Object.entries(campAdjs).sort((a,b)=>Math.abs(b[1].adj)-Math.abs(a[1].adj)).map(([name,a])=>(
-                      <div key={name} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:"var(--surface-1)",borderRadius:"var(--radius)",border:"0.5px solid var(--border)",fontSize:10}}>
+                      <div key={name} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:"var(--surface-1)",borderRadius:"var(--radius)",border:"0.5px solid var(--border)",fontSize:10,flexWrap:"wrap"}}>
                         <span style={{fontSize:13}}>{a.signal==="up"?"▲":a.signal==="down"?"▼":"—"}</span>
                         <span style={{fontWeight:500,width:150,flexShrink:0}}>{name}</span>
                         <span style={{color:a.adj>0?"#0e9f6e":a.adj<0?"#e03e3e":"var(--text-primary)",fontWeight:500,width:56,flexShrink:0}}>{a.adj>0?`+${a.adj}`:a.adj} spots</span>
-                        <span style={{color:"var(--text-primary)",flex:1}}>{a.summary}</span>
-                        <span style={{fontSize:8,padding:"1px 5px",borderRadius:3,background:safetyColor(a.safety||"Solid"),color:"#fff"}}>{scoreLabel(a.safety)}</span>
+                        <span style={{color:"var(--text-primary)",flex:1,minWidth:120}}>{a.summary}</span>
+                        {(a.tags||[]).map(tag=>(
+                          <span key={tag} style={{fontSize:8,padding:"1px 6px",borderRadius:3,background:tagColor(tag),color:"#fff"}}>{tag}</span>
+                        ))}
                       </div>
                     ))}
                   </div>
@@ -1635,7 +1579,7 @@ export default function App() {
 
             {selected.campSummary&&(
               <div style={{background:selected.campAdj>0?"var(--bg-success)":selected.campAdj<0?"var(--bg-danger)":"var(--surface-1)",borderRadius:"var(--radius)",padding:"8px 10px",marginBottom:8}}>
-                <div style={{fontSize:8,color:"var(--text-muted)",marginBottom:3}}>Camp analysis</div>
+                <div style={{fontSize:8,color:"var(--text-muted)",marginBottom:3}}>Intel analysis</div>
                 <div style={{fontSize:10,fontWeight:500,color:selected.campAdj>0?"var(--text-success)":selected.campAdj<0?"var(--text-danger)":"var(--text-primary)",marginBottom:2}}>
                   {selected.campAdj>0?`▲ Up ${selected.campAdj} spots`:selected.campAdj<0?`▼ Down ${Math.abs(selected.campAdj)} spots`:"Neutral"}
                 </div>
