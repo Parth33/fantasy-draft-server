@@ -10,11 +10,15 @@ const HANDLES = [
 
 async function scrapeXAccounts(startDate) {
   const apiKey = process.env.APIFY_API_KEY;
+  const authHeaders = {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer ' + apiKey
+  };
 
   // Start the actor run
-  const runRes = await fetch('https://api.apify.com/v2/acts/apidojo~tweet-scraper/runs?token=' + apiKey, {
+  const runRes = await fetch('https://api.apify.com/v2/acts/apidojo~tweet-scraper/runs', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders,
     body: JSON.stringify({
       twitterHandles: HANDLES,
       maxItems: 2000,
@@ -30,6 +34,12 @@ async function scrapeXAccounts(startDate) {
     })
   });
 
+  if (!runRes.ok) {
+    const body = await runRes.text();
+    console.error('Apify run start failed:', runRes.status, body);
+    throw new Error(`Apify run start failed with ${runRes.status}: ${body}`);
+  }
+
   const run = await runRes.json();
   const runId = run.data.id;
 
@@ -40,7 +50,14 @@ async function scrapeXAccounts(startDate) {
     await new Promise(r => setTimeout(r, 15000)); // wait 15 seconds between polls
     attempts++;
     if (attempts > 40) throw new Error('Apify run timed out');
-    const statusRes = await fetch(`https://api.apify.com/v2/acts/apidojo~tweet-scraper/runs/${runId}?token=${apiKey}`);
+    const statusRes = await fetch(`https://api.apify.com/v2/acts/apidojo~tweet-scraper/runs/${runId}`, {
+      headers: authHeaders
+    });
+    if (!statusRes.ok) {
+      const body = await statusRes.text();
+      console.error('Apify run status check failed:', statusRes.status, body);
+      throw new Error(`Apify run status check failed with ${statusRes.status}: ${body}`);
+    }
     const statusData = await statusRes.json();
     status = statusData.data.status;
   }
@@ -48,7 +65,14 @@ async function scrapeXAccounts(startDate) {
   if (status !== 'SUCCEEDED') throw new Error('Apify run failed with status: ' + status);
 
   // Fetch results from dataset
-  const datasetRes = await fetch(`https://api.apify.com/v2/acts/apidojo~tweet-scraper/runs/${runId}/dataset/items?token=${apiKey}&limit=2000`);
+  const datasetRes = await fetch(`https://api.apify.com/v2/acts/apidojo~tweet-scraper/runs/${runId}/dataset/items?limit=2000`, {
+    headers: authHeaders
+  });
+  if (!datasetRes.ok) {
+    const body = await datasetRes.text();
+    console.error('Apify dataset fetch failed:', datasetRes.status, body);
+    throw new Error(`Apify dataset fetch failed with ${datasetRes.status}: ${body}`);
+  }
   const tweets = await datasetRes.json();
 
   // Filter to startDate if provided, format results

@@ -311,6 +311,7 @@ app.get("/api/x-scrape", async (req, res) => {
     xTweetsCachedAt = Date.now();
     res.json({ tweets, cachedAt: xTweetsCachedAt, fromCache: false });
   } catch (err) {
+    console.error("X scrape full error:", err.stack || err);
     console.error("X scrape error:", err);
     res.status(500).json({ error: err.message });
   }
