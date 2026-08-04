@@ -43,14 +43,14 @@ async function scrapeXAccounts(startDate) {
 
   const tweets = await runRes.json();
 
-  // Filter to startDate if provided, format results
-  const cutoff = startDate ? new Date(startDate) : new Date('2026-07-21');
+  console.log('Apify total results:', tweets.length);
+  console.log('Apify raw sample:', JSON.stringify(tweets.slice(0, 3), null, 2));
+
   return tweets
-    .filter(t => t.createdAt && new Date(t.createdAt) >= cutoff)
     .map(t => ({
-      handle: t.author?.userName || t.user?.screen_name || 'unknown',
-      text: t.text || t.full_text || '',
-      timestamp: t.createdAt || t.created_at || '',
+      handle: t.author?.userName || t.author?.username || t.user?.screen_name || t.userName || '',
+      text: t.text || t.full_text || t.rawContent || '',
+      timestamp: t.createdAt || t.created_at || t.date || '',
       url: t.url || ''
     }))
     .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
