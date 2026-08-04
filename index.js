@@ -298,15 +298,10 @@ app.get("/api/camp-news", async (req, res) => {
 // ─── X (Twitter) scrape via Apify ─────────────────────────────────────────────
 app.get("/api/x-scrape", async (req, res) => {
   try {
-    const forceRefresh = req.query.force === "true";
-    const sixHours = 6 * 60 * 60 * 1000;
-
-    if (!forceRefresh && xTweetsCache && xTweetsCachedAt && (Date.now() - xTweetsCachedAt < sixHours)) {
-      return res.json({ tweets: xTweetsCache, cachedAt: xTweetsCachedAt, fromCache: true });
-    }
-
     const startDate = req.query.startDate || "2026-07-21";
+    console.log('Starting X scrape via Apify...');
     const tweets = await scrapeXAccounts(startDate);
+    console.log('X scrape complete, tweet count:', tweets.length);
     xTweetsCache = tweets;
     xTweetsCachedAt = Date.now();
     res.json({ tweets, cachedAt: xTweetsCachedAt, fromCache: false });

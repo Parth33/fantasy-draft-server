@@ -10,6 +10,7 @@ const HANDLES = [
 
 async function scrapeXAccounts(startDate) {
   const apiKey = process.env.APIFY_API_KEY;
+  console.log('scrapeXAccounts called, API key present:', !!process.env.APIFY_API_KEY);
 
   const response = await fetch('https://api.apify.com/v2/acts/xquik~x-tweet-scraper/run-sync-get-dataset-items?timeout=300', {
     method: 'POST',
