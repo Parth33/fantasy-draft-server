@@ -2,12 +2,16 @@ const express = require("express");
 const cors = require("cors");
 const fetch = require("node-fetch");
 const xml2js = require("xml2js");
+const { scrapeXAccounts } = require("./scraper/apifyScraper");
 
 const app = express();
 const PORT = process.env.PORT || 8080;
 
 app.use(cors());
 app.use(express.json());
+
+let xTweetsCache = null;
+let xTweetsCachedAt = null;
 
 // ─── Health check ────────────────────────────────────────────────────────────
 app.get("/api/health", (req, res) => {
@@ -288,6 +292,27 @@ app.get("/api/camp-news", async (req, res) => {
   } catch (err) {
     console.error("Camp news error:", err);
     res.status(500).json({ success: false, error: err.message, notes: [] });
+  }
+});
+
+// ─── X (Twitter) scrape via Apify ─────────────────────────────────────────────
+app.get("/api/x-scrape", async (req, res) => {
+  try {
+    const forceRefresh = req.query.force === "true";
+    const sixHours = 6 * 60 * 60 * 1000;
+
+    if (!forceRefresh && xTweetsCache && xTweetsCachedAt && (Date.now() - xTweetsCachedAt < sixHours)) {
+      return res.json({ tweets: xTweetsCache, cachedAt: xTweetsCachedAt, fromCache: true });
+    }
+
+    const startDate = req.query.startDate || "2026-07-21";
+    const tweets = await scrapeXAccounts(startDate);
+    xTweetsCache = tweets;
+    xTweetsCachedAt = Date.now();
+    res.json({ tweets, cachedAt: xTweetsCachedAt, fromCache: false });
+  } catch (err) {
+    console.error("X scrape error:", err);
+    res.status(500).json({ error: err.message });
   }
 });
 

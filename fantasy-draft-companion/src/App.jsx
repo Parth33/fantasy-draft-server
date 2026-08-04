@@ -682,6 +682,8 @@ export default function App() {
   const [campLastRun, setCampLastRun] = useState(null);
   const [fetchStatus, setFetchStatus] = useState("idle");
   const [fpLastUpdated, setFpLastUpdated] = useState(null);
+  const [xTweetStatus, setXTweetStatus] = useState("idle");
+  const [xTweetCount, setXTweetCount] = useState(null);
   const [recentPicks, setRecentPicks] = useState([]);
   const [xHandles, setXHandles] = useState(null);
   const [theme, setTheme] = useState("dark");
@@ -999,6 +1001,39 @@ export default function App() {
       fetchFantasyProsData();
     }
   }, []);
+
+  const appendXTweets = (tweets) => {
+    const formatted = tweets.map(t => `@${t.handle}: ${t.text}`).join("\n");
+    setCampText(prev => [prev, formatted].filter(Boolean).join("\n\n"));
+    setXTweetCount(tweets.length);
+  };
+
+  const fetchXTweets = async () => {
+    const cachedAt = Number(localStorage.getItem("x_tweets_cached_at"));
+    const cached = localStorage.getItem("x_tweets_cache");
+    const sixHours = 6 * 60 * 60 * 1000;
+    if (cachedAt && cached && Date.now() - cachedAt < sixHours) {
+      try {
+        const tweets = JSON.parse(cached);
+        appendXTweets(tweets);
+        setXTweetStatus("done");
+        return;
+      } catch {}
+    }
+    setXTweetStatus("loading");
+    try {
+      const res = await fetch(`${SERVER}/api/x-scrape`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `x-scrape responded with ${res.status}`);
+      const tweets = data.tweets || [];
+      localStorage.setItem("x_tweets_cache", JSON.stringify(tweets));
+      localStorage.setItem("x_tweets_cached_at", String(data.cachedAt || Date.now()));
+      appendXTweets(tweets);
+      setXTweetStatus("done");
+    } catch (e) {
+      setXTweetStatus("error");
+    }
+  };
 
   const fetchXHandles = async () => {
     try {
@@ -1513,6 +1548,12 @@ export default function App() {
                   {fetchStatus==="loading"?"Refreshing...":"Refresh"}
                 </button>
                 {fetchStatus==="error"&&<span style={{fontSize:10,color:"var(--text-danger)"}}>Fetch failed — paste notes manually below</span>}
+
+                <button onClick={fetchXTweets} disabled={xTweetStatus==="loading"} style={{fontSize:11,padding:"7px 14px",borderRadius:6,border:`1px solid var(--border)`,background:"var(--bg-card)",cursor:xTweetStatus==="loading"?"wait":"pointer",color:"var(--text-primary)",fontWeight:500}}>
+                  {xTweetStatus==="loading"?"Fetching tweets... this takes a few minutes":"Fetch X Intel"}
+                </button>
+                {xTweetStatus==="error"&&<span style={{fontSize:10,color:"var(--text-danger)"}}>X fetch failed</span>}
+                {xTweetStatus==="done"&&xTweetCount!==null&&<span style={{fontSize:10,color:"var(--text-primary)"}}>{xTweetCount} tweets loaded from X</span>}
 
                 <button onClick={fetchXHandles} style={{fontSize:10,padding:"5px 10px",borderRadius:"var(--radius)",border:"0.5px solid var(--border)",background:"transparent",cursor:"pointer",color:"var(--text-primary)"}}>X handles to follow</button>
               </div>
