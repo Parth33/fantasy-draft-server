@@ -10,48 +10,48 @@ const HANDLES = [
 
 async function scrapeXAccounts(startDate) {
   const apiKey = process.env.APIFY_API_KEY;
-  const authHeaders = {
-    'Content-Type': 'application/json',
-    'Authorization': 'Bearer ' + apiKey
-  };
 
-  // Run the actor synchronously and get dataset items directly — no polling needed
-  const runRes = await fetch('https://api.apify.com/v2/acts/apidojo~tweet-scraper/run-sync-get-dataset-items?timeout=300', {
+  const response = await fetch('https://api.apify.com/v2/acts/xquik~x-tweet-scraper/run-sync-get-dataset-items?timeout=300', {
     method: 'POST',
-    headers: authHeaders,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + apiKey
+    },
     body: JSON.stringify({
       twitterHandles: HANDLES,
       maxItems: 2000,
-      sort: 'Latest',
-      tweetLanguage: 'en',
-      onlyImage: false,
-      onlyVideo: false,
-      onlyQuote: false,
-      onlyVerifiedUsers: false,
-      onlyTwitterBlue: false,
-      includeSearchTerms: false,
-      customMapFunction: '(object) => { return {...object} }'
+      queryType: 'Latest',
+      outputPreset: 'flat',
+      outputVariant: 'rich',
+      fieldStyle: 'camelCase',
+      includeSearchTerms: false
     }),
     signal: AbortSignal.timeout(310000)
   });
 
-  if (!runRes.ok) {
-    const body = await runRes.text();
-    console.error('Apify run-sync failed:', runRes.status, body);
-    throw new Error(`Apify run-sync failed with ${runRes.status}: ${body}`);
+  if (!response.ok) {
+    const errText = await response.text();
+    console.error('Apify error response:', response.status, errText);
+    throw new Error('Apify request failed: ' + response.status + ' ' + errText);
   }
 
-  const tweets = await runRes.json();
-
+  const tweets = await response.json();
   console.log('Apify total results:', tweets.length);
-  console.log('Apify raw sample:', JSON.stringify(tweets.slice(0, 3), null, 2));
+  if (tweets.length > 0) console.log('Apify raw sample:', JSON.stringify(tweets.slice(0, 2), null, 2));
+
+  const cutoff = startDate ? new Date(startDate) : new Date('2026-07-21');
 
   return tweets
+    .filter(t => t.resultType !== 'diagnostic')
+    .filter(t => {
+      if (!t.createdAt) return true;
+      return new Date(t.createdAt) >= cutoff;
+    })
     .map(t => ({
-      handle: t.author?.userName || t.author?.username || t.user?.screen_name || t.userName || '',
-      text: t.text || t.full_text || t.rawContent || '',
-      timestamp: t.createdAt || t.created_at || t.date || '',
-      url: t.url || ''
+      handle: t.authorUsername || t.author?.username || 'unknown',
+      text: t.text || '',
+      timestamp: t.createdAt || '',
+      url: t.url || t.tweetUrl || ''
     }))
     .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 }
