@@ -176,6 +176,50 @@ const DEF = {
   LAC:{rank:31,ppg:29.4,label:"Bottom",shootout:true},CAR:{rank:32,ppg:30.2,label:"Bottom",shootout:true},
 };
 
+// Buckets mirror the hardcoded DEF table's rank boundaries so defColor/defTextColor keep working unchanged.
+function defLabelFromRank(rank) {
+  if (rank == null) return "Average";
+  if (rank <= 3) return "Elite";
+  if (rank <= 7) return "Strong";
+  if (rank <= 14) return "Average";
+  if (rank <= 21) return "Weak";
+  if (rank <= 28) return "Very Weak";
+  return "Bottom";
+}
+
+// DST draft-value tiers: strong defenses (rank 1-12) tier highest.
+function defTierFromRank(rank) {
+  if (rank == null) return 5;
+  if (rank <= 12) return 1;
+  if (rank <= 20) return 2;
+  if (rank <= 26) return 3;
+  return 4;
+}
+
+// Layers imported defense rankings over the hardcoded DEF table, team by team — any team
+// missing from the import (or when nothing's been imported) falls back to the hardcoded entry.
+function buildEffectiveDefMap(defenseRankings) {
+  if (!defenseRankings || !Object.keys(defenseRankings).length) return DEF;
+  const map = { ...DEF };
+  Object.entries(defenseRankings).forEach(([team, d]) => {
+    if (d.rank == null) return;
+    map[team] = { rank: d.rank, label: defLabelFromRank(d.rank), shootout: d.rank >= 23, ppg: null };
+  });
+  return map;
+}
+
+// Overrides DEF-position players' tier (and derived risk/safety) using imported defense ranks.
+function applyDefenseTiersToPlayers(playersArr, defenseRankings) {
+  if (!defenseRankings || !Object.keys(defenseRankings).length) return playersArr;
+  return playersArr.map(p => {
+    if (p.pos !== "DEF") return p;
+    const d = defenseRankings[p.team];
+    if (!d || d.rank == null) return p;
+    const tier = defTierFromRank(d.rank);
+    return { ...p, tier, risk: deriveRisk(tier), safety: deriveSafety(tier) };
+  });
+}
+
 const SOS = {
   PHI:{e:"A",f:"B",s:92},DET:{e:"B+",f:"B",s:87},KC:{e:"A-",f:"B+",s:89},
   BAL:{e:"B",f:"B-",s:84},BUF:{e:"B+",f:"A-",s:88},DAL:{e:"C+",f:"B",s:72},
@@ -547,13 +591,13 @@ function buildImportedPlayerPool(files) {
   return { players, fileSummaries };
 }
 
-function getRecs(available, roster, round) {
+function getRecs(available, roster, round, defMap = DEF) {
   const counts = {QB:0,RB:0,WR:0,TE:0,K:0,DEF:0};
   roster.forEach(p => { if(p&&counts[p.pos]!==undefined) counts[p.pos]++; });
   return available.map(p => {
     let score = (150 - p.rank) * 2;
     const ol = olineGrade(p.team, p.pos);
-    const d = DEF[p.team]; const s = SOS[p.team];
+    const d = defMap[p.team]; const s = SOS[p.team];
     score += (ol.score - 70) * 0.4;
     if (d?.shootout && (p.pos==="WR"||p.pos==="QB")) score += 6;
     if (s) score += (s.s - 80) * 0.25;
@@ -575,9 +619,9 @@ function getRecs(available, roster, round) {
   }).sort((a,b)=>b.recScore-a.recScore).slice(0,3);
 }
 
-function getReason(p, roster, round) {
+function getReason(p, roster, round, defMap = DEF) {
   const counts={QB:0,RB:0,WR:0,TE:0}; roster.forEach(r=>{if(r&&counts[r.pos]!==undefined)counts[r.pos]++;});
-  const ol=olineGrade(p.team,p.pos); const d=DEF[p.team]; const s=SOS[p.team];
+  const ol=olineGrade(p.team,p.pos); const d=defMap[p.team]; const s=SOS[p.team];
   const parts=[];
   if (p.tier===1) parts.push("Tier 1 on board");
   if (p.safety==="Very Safe") parts.push("Very safe pick");
@@ -597,6 +641,7 @@ const LS_KEYS = {
   players:"fdc_players", drafted:"fdc_drafted", rosters:"fdc_rosters",
   round:"fdc_round", pick:"fdc_pick", draftPos:"fdc_draftpos", league:"fdc_league",
   customRankings:"fdc_custom_rankings", playerNotes:"fdc_player_notes",
+  defenseRankings:"fdc_defense_rankings",
 };
 
 function loadLS(key, fallback) {
@@ -641,13 +686,17 @@ export default function App() {
   const [importError, setImportError] = useState(null);
   const [notesImportInfo, setNotesImportInfo] = useState(null);
   const [notesImportError, setNotesImportError] = useState(null);
+  const [defImportInfo, setDefImportInfo] = useState(null);
+  const [defImportError, setDefImportError] = useState(null);
   const [slotMsg, setSlotMsg] = useState(null);
   const [playerNotes, setPlayerNotes] = useState(() => loadLS(LS_KEYS.playerNotes, {}));
+  const [defenseRankings, setDefenseRankings] = useState(() => loadLS(LS_KEYS.defenseRankings, {}));
   const [tagPick, setTagPick] = useState("");
   const [notePick, setNotePick] = useState("");
   const sidebarRef = useRef(null);
   const fileInputRef = useRef(null);
   const notesFileInputRef = useRef(null);
+  const defenseFileInputRef = useRef(null);
 
   useEffect(() => {
     if (sidebarRef.current) sidebarRef.current.scrollTop = 0;
@@ -663,6 +712,16 @@ export default function App() {
   useEffect(() => { saveLS(LS_KEYS.league, league); }, [league]);
   useEffect(() => { saveLS(LS_KEYS.customRankings, hasCustomRankings); }, [hasCustomRankings]);
   useEffect(() => { saveLS(LS_KEYS.playerNotes, playerNotes); }, [playerNotes]);
+  useEffect(() => { saveLS(LS_KEYS.defenseRankings, defenseRankings); }, [defenseRankings]);
+
+  // Re-tiers DEF-position players whenever the defense CSV is (re)imported, in case it happens
+  // after the main rankings pool is already loaded.
+  useEffect(() => {
+    if (!Object.keys(defenseRankings).length) return;
+    setPlayers(prev => applyDefenseTiersToPlayers(prev, defenseRankings));
+  }, [defenseRankings]);
+
+  const effectiveDefMap = useMemo(() => buildEffectiveDefMap(defenseRankings), [defenseRankings]);
 
   useEffect(() => { setTagPick(""); setNotePick(""); }, [selected?.id]);
 
@@ -693,7 +752,7 @@ export default function App() {
 
   const sorted = useMemo(() => [...filtered].sort((a,b)=>a.rank-b.rank), [filtered]);
 
-  const recs = useMemo(() => getRecs(available, roster, round), [available, roster, round]);
+  const recs = useMemo(() => getRecs(available, roster, round, effectiveDefMap), [available, roster, round, effectiveDefMap]);
 
   const isMyTurn = useMemo(() => {
     const inRound = ((pick-1)%teams)+1;
@@ -864,12 +923,15 @@ export default function App() {
     setLeague(0);
     setRecentPicks([]);
     setSelected(null);
-    setCampAdjs({});
+    setCampResults([]);
     setCampStatus("idle");
     setCampLastRun(null);
     setImportError(null);
     setImportInfo(null);
     setHasCustomRankings(false);
+    setDefenseRankings({});
+    setDefImportInfo(null);
+    setDefImportError(null);
   };
 
   const handleImportFiles = async (e) => {
@@ -878,14 +940,14 @@ export default function App() {
     try {
       const files = await Promise.all(fileList.map(async f => ({ name: f.name, text: await f.text() })));
       const { players: imported, fileSummaries } = buildImportedPlayerPool(files);
-      setPlayers(imported);
+      setPlayers(applyDefenseTiersToPlayers(imported, defenseRankings));
       setDraftedIds([[], []]);
       setRosters([Array(15).fill(null), Array(15).fill(null)]);
       setPick(1);
       setRound(1);
       setRecentPicks([]);
       setSelected(null);
-      setCampAdjs({});
+      setCampResults([]);
       setCampStatus("idle");
       setCampLastRun(null);
       setImportError(null);
@@ -910,6 +972,27 @@ export default function App() {
       setNotesImportInfo({ count: withNotes.length, timestamp: new Date() });
     } catch (err) {
       setNotesImportError(err.message || "Failed to import notes CSV");
+    } finally {
+      e.target.value = "";
+    }
+  };
+
+  const handleImportDefenseFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const rows = parseFantasyProsRows(text, "DEF");
+      const map = {};
+      rows.forEach(r => {
+        if (!r.team) return;
+        map[r.team] = { rank: r.rank, tier: r.tier, name: r.name, bye: r.bye, sosStars: r.sosStars };
+      });
+      setDefenseRankings(map);
+      setDefImportError(null);
+      setDefImportInfo({ count: Object.keys(map).length, timestamp: new Date() });
+    } catch (err) {
+      setDefImportError(err.message || "Failed to import defense CSV");
     } finally {
       e.target.value = "";
     }
@@ -1010,7 +1093,7 @@ export default function App() {
 
   const PlayerRow = ({p, compact, index=0}) => {
     const ol = (p.pos==="RB"||p.pos==="WR"||p.pos==="QB") ? olineGrade(p.team,p.pos) : null;
-    const d = DEF[p.team]; const s = SOS[p.team];
+    const d = effectiveDefMap[p.team]; const s = SOS[p.team];
     const isRec = recs.some(r=>r.id===p.id);
     const isSel = selected?.id===p.id;
     const zebra = index%2===1 ? "var(--bg-row-alt)" : "var(--bg-row)";
@@ -1158,6 +1241,10 @@ export default function App() {
           <button onClick={()=>notesFileInputRef.current?.click()} style={{fontSize:10,padding:"3px 9px",borderRadius:6,border:`1px solid var(--border)`,background:"transparent",cursor:"pointer",color:"var(--text-secondary)"}}>
             ⬆ Import Notes CSV
           </button>
+          <input ref={defenseFileInputRef} type="file" accept=".csv" onChange={handleImportDefenseFile} style={{display:"none"}}/>
+          <button onClick={()=>defenseFileInputRef.current?.click()} style={{fontSize:10,padding:"3px 9px",borderRadius:6,border:`1px solid var(--border)`,background:"transparent",cursor:"pointer",color:"var(--text-secondary)"}}>
+            ⬆ Import Defense CSV
+          </button>
           {hasCustomRankings&&(
             <span title="Custom rankings loaded from CSV import are saved and will persist across refreshes" style={{fontSize:9,display:"flex",alignItems:"center",gap:4,padding:"3px 8px",borderRadius:"var(--radius)",background:"var(--bg-success)",color:"var(--text-success)",fontWeight:500}}>
               <span style={{width:6,height:6,borderRadius:"50%",background:"var(--text-success)",display:"inline-block"}}/> Rankings saved
@@ -1203,6 +1290,19 @@ export default function App() {
             </span>
           )}
           <button onClick={()=>{setNotesImportInfo(null);setNotesImportError(null);}} style={{marginLeft:"auto",background:"none",border:"none",cursor:"pointer",color:"var(--text-muted)",fontSize:11}}>✕</button>
+        </div>
+      )}
+
+      {(defImportInfo||defImportError)&&(
+        <div style={{padding:"5px 12px",background:defImportError?"var(--bg-danger)":"var(--bg-success)",borderBottom:`1px solid var(--border)`,display:"flex",alignItems:"center",gap:8,fontSize:10}}>
+          {defImportError?(
+            <span style={{color:"var(--text-danger)"}}>Defense import failed: {defImportError}</span>
+          ):(
+            <span style={{color:"var(--text-success)"}}>
+              {defImportInfo.count} team defenses imported — {defImportInfo.timestamp.toLocaleTimeString()}
+            </span>
+          )}
+          <button onClick={()=>{setDefImportInfo(null);setDefImportError(null);}} style={{marginLeft:"auto",background:"none",border:"none",cursor:"pointer",color:"var(--text-muted)",fontSize:11}}>✕</button>
         </div>
       )}
 
@@ -1288,7 +1388,7 @@ export default function App() {
                             <span style={{fontSize:9,padding:"2px 5px",borderRadius:4,background:POS_COLORS[p.pos]||"#555",color:"#fff",fontWeight:700,flexShrink:0}}>{p.pos}</span>
                           </div>
                           <span style={{fontSize:11,fontWeight:700,padding:"3px 9px",borderRadius:"var(--radius)",background:`${safetyColor(p.safety)}26`,color:safetyTextColor(p.safety),width:"fit-content"}}>{scoreLabel(p.safety)}</span>
-                          <div style={{fontSize:11,color:"var(--text-secondary)",lineHeight:1.5,flex:1,display:"-webkit-box",WebkitLineClamp:3,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{getReason(p,roster,round)}</div>
+                          <div style={{fontSize:11,color:"var(--text-secondary)",lineHeight:1.5,flex:1,display:"-webkit-box",WebkitLineClamp:3,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{getReason(p,roster,round,effectiveDefMap)}</div>
                         </div>
                       ))}
                     </div>
@@ -1437,13 +1537,13 @@ export default function App() {
               <div style={{fontSize:12,fontWeight:500,marginBottom:4}}>Defensive rankings</div>
               <div style={{fontSize:10,color:"var(--text-secondary)",marginBottom:10}}>Weak defenses mean the opposing offense scores more to keep up. Good for your offensive players.</div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:5}}>
-                {Object.entries(DEF).sort((a,b)=>a[1].rank-b[1].rank).map(([team,d])=>(
+                {Object.entries(effectiveDefMap).sort((a,b)=>a[1].rank-b[1].rank).map(([team,d])=>(
                   <div key={team} style={{background:"var(--bg-card)",border:`1px solid var(--border)`,borderRadius:6,padding:"7px 10px"}}>
                     <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
                       <span style={{fontWeight:500,fontSize:11}}>#{d.rank} {team}</span>
                       <span style={{fontSize:8,padding:"1px 4px",borderRadius:3,background:defColor(d.label),color:"#fff"}}>{d.label}</span>
                     </div>
-                    <div style={{fontSize:9,color:"var(--text-secondary)"}}>{d.ppg} ppg allowed</div>
+                    {d.ppg!=null&&<div style={{fontSize:9,color:"var(--text-secondary)"}}>{d.ppg} ppg allowed</div>}
                     {d.shootout&&<div style={{fontSize:8,color:"#c27803",marginTop:2}}>Shootout likely</div>}
                   </div>
                 ))}
@@ -1484,7 +1584,7 @@ export default function App() {
             </div>
           )}
 
-          {activeTab==="mock"&&<MockTab teams={teams} draftPos={draftPos} players={players} getRecs={getRecs} getReason={getReason}/>}
+          {activeTab==="mock"&&<MockTab teams={teams} draftPos={draftPos} players={players} getRecs={getRecs} getReason={getReason} defMap={effectiveDefMap}/>}
         </div>
 
         {/* RIGHT: Player detail panel */}
@@ -1599,8 +1699,8 @@ export default function App() {
               );
             })()}
 
-            {DEF[selected.team]&&(()=>{
-              const d=DEF[selected.team];
+            {effectiveDefMap[selected.team]&&(()=>{
+              const d=effectiveDefMap[selected.team];
               return (
                 <div style={{background:"var(--surface-1)",borderRadius:"var(--radius)",padding:"8px 10px",marginBottom:8}}>
                   <div style={{fontSize:8,fontWeight:600,color:"var(--text-secondary)",marginBottom:3,textTransform:"uppercase",letterSpacing:"0.05em"}}>Team defense</div>
@@ -1608,7 +1708,7 @@ export default function App() {
                     <span style={{fontSize:11,fontWeight:500}}>#{d.rank} overall</span>
                     <span style={{fontSize:8,padding:"1px 4px",borderRadius:3,background:defColor(d.label),color:"#fff"}}>{d.label}</span>
                   </div>
-                  <div style={{fontSize:9,color:"var(--text-secondary)",marginTop:2}}>{d.ppg} ppg allowed</div>
+                  {d.ppg!=null&&<div style={{fontSize:9,color:"var(--text-secondary)",marginTop:2}}>{d.ppg} ppg allowed</div>}
                   {d.shootout&&<div style={{fontSize:9,color:"#c27803",marginTop:2}}>Weak D = more offensive volume</div>}
                 </div>
               );
@@ -1643,7 +1743,7 @@ export default function App() {
   );
 }
 
-function MockTab({teams, draftPos, players, getRecs, getReason}) {
+function MockTab({teams, draftPos, players, getRecs, getReason, defMap}) {
   const [drafted,setDrafted]=useState([]);
   const [roster,setRoster]=useState([]);
   const [pick,setPick]=useState(1);
@@ -1655,7 +1755,7 @@ function MockTab({teams, draftPos, players, getRecs, getReason}) {
     const snake=round%2===0?teams-draftPos+1:draftPos;
     return inR===snake;
   },[pick,round,teams,draftPos]);
-  const recs=useMemo(()=>getRecs(avail,roster,round),[avail,roster,round]);
+  const recs=useMemo(()=>getRecs(avail,roster,round,defMap),[avail,roster,round,defMap]);
   const advance=useCallback((p,isMe)=>{
     setDrafted(prev=>[...prev,p.id]);
     if(isMe)setRoster(prev=>[...prev,p]);
