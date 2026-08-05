@@ -99,14 +99,30 @@ const POS_COLORS = { QB: "var(--pos-qb)", RB: "var(--pos-rb)", WR: "var(--pos-wr
 const ROW_COLS = "28px 36px 200px 44px 92px 112px 58px 108px 78px";
 const ROW_COLS_COMPACT = "22px 28px 210px 40px 72px 88px 46px 90px 76px";
 
-// Consistent color per camp-intel tag type — green for strong buys, red for risk/avoid,
-// amber for upside-but-unproven, blue for everything else (role/usage notes).
+// Valid AI/manual tags — role tags describe usage, sentiment tags describe analyst outlook.
+const VALID_TAGS = [
+  "Workhorse", "Committee Back", "WR1 Role", "Target Hog", "Depth Only", "Handcuff",
+  "Boom/Bust", "Analyst Favorite", "Analyst Fade", "Injury Risk", "Breakout",
+  "Bounce Back", "Rookie Riser", "Aging Concern", "Situation Change",
+];
+
+// Consistent color per tag — green for strong role/sentiment, red for risk/fade,
+// amber for volatile/uncertain, blue for everything else (neutral role notes).
 const TAG_COLORS = {
-  "Must Draft": "#0e9f6e",
-  "Sleeper": "#c27803",
-  "Breakout": "#c27803",
+  "Workhorse": "#0e9f6e",
+  "WR1 Role": "#0e9f6e",
+  "Target Hog": "#0e9f6e",
+  "Analyst Favorite": "#0e9f6e",
+  "Breakout": "#0e9f6e",
+  "Bounce Back": "#0e9f6e",
+  "Rookie Riser": "#0e9f6e",
+  "Committee Back": "#c27803",
+  "Boom/Bust": "#c27803",
+  "Situation Change": "#c27803",
+  "Depth Only": "#9b1c1c",
+  "Analyst Fade": "#9b1c1c",
   "Injury Risk": "#9b1c1c",
-  "Avoid": "#9b1c1c",
+  "Aging Concern": "#9b1c1c",
 };
 function tagColor(tag) { return TAG_COLORS[tag] || "#1a56db"; }
 
@@ -538,7 +554,6 @@ function getRecs(available, roster, round) {
     let score = (150 - p.rank) * 2;
     const ol = olineGrade(p.team, p.pos);
     const d = DEF[p.team]; const s = SOS[p.team];
-    if (p.campAdj) score += p.campAdj * 4;
     score += (ol.score - 70) * 0.4;
     if (d?.shootout && (p.pos==="WR"||p.pos==="QB")) score += 6;
     if (s) score += (s.s - 80) * 0.25;
@@ -564,8 +579,6 @@ function getReason(p, roster, round) {
   const counts={QB:0,RB:0,WR:0,TE:0}; roster.forEach(r=>{if(r&&counts[r.pos]!==undefined)counts[r.pos]++;});
   const ol=olineGrade(p.team,p.pos); const d=DEF[p.team]; const s=SOS[p.team];
   const parts=[];
-  if (p.campAdj>0) parts.push("Camp trending up");
-  if (p.campAdj<0) parts.push("Camp concern factored");
   if (p.tier===1) parts.push("Tier 1 on board");
   if (p.safety==="Very Safe") parts.push("Very safe pick");
   if (ol.label==="Elite"&&p.pos==="RB") parts.push("Elite run-blocking line");
@@ -583,7 +596,7 @@ const LEAGUES = [{id:0,name:"League 1",teams:12},{id:1,name:"League 2",teams:10}
 const LS_KEYS = {
   players:"fdc_players", drafted:"fdc_drafted", rosters:"fdc_rosters",
   round:"fdc_round", pick:"fdc_pick", draftPos:"fdc_draftpos", league:"fdc_league",
-  customRankings:"fdc_custom_rankings",
+  customRankings:"fdc_custom_rankings", playerNotes:"fdc_player_notes",
 };
 
 function loadLS(key, fallback) {
@@ -678,7 +691,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState("board");
   const [campText, setCampText] = useState("");
   const [campStatus, setCampStatus] = useState("idle");
-  const [campAdjs, setCampAdjs] = useState({});
+  const [campResults, setCampResults] = useState([]);
   const [campLastRun, setCampLastRun] = useState(null);
   const [fetchStatus, setFetchStatus] = useState("idle");
   const [fpLastUpdated, setFpLastUpdated] = useState(null);
@@ -689,6 +702,9 @@ export default function App() {
   const [notesImportInfo, setNotesImportInfo] = useState(null);
   const [notesImportError, setNotesImportError] = useState(null);
   const [slotMsg, setSlotMsg] = useState(null);
+  const [playerNotes, setPlayerNotes] = useState(() => loadLS(LS_KEYS.playerNotes, {}));
+  const [tagPick, setTagPick] = useState("");
+  const [notePick, setNotePick] = useState("");
   const sidebarRef = useRef(null);
   const fileInputRef = useRef(null);
   const notesFileInputRef = useRef(null);
@@ -706,6 +722,9 @@ export default function App() {
   useEffect(() => { saveLS(LS_KEYS.draftPos, draftPosByLeague); }, [draftPosByLeague]);
   useEffect(() => { saveLS(LS_KEYS.league, league); }, [league]);
   useEffect(() => { saveLS(LS_KEYS.customRankings, hasCustomRankings); }, [hasCustomRankings]);
+  useEffect(() => { saveLS(LS_KEYS.playerNotes, playerNotes); }, [playerNotes]);
+
+  useEffect(() => { setTagPick(""); setNotePick(""); }, [selected?.id]);
 
   useEffect(() => {
     const t = THEMES[theme];
@@ -999,6 +1018,49 @@ export default function App() {
     }
   }, []);
 
+  // Adds tags to a player's persistent note entry, deduplicating against what's already there.
+  const addTagsToPlayer = (name, tags) => {
+    if (!name || !tags || !tags.length) return;
+    setPlayerNotes(prev => {
+      const entry = prev[name] || { tags: [], notes: [] };
+      const mergedTags = Array.from(new Set([...entry.tags, ...tags]));
+      return { ...prev, [name]: { ...entry, tags: mergedTags } };
+    });
+  };
+
+  const addNoteToPlayer = (name, note) => {
+    if (!name || !note || !note.trim()) return;
+    setPlayerNotes(prev => {
+      const entry = prev[name] || { tags: [], notes: [] };
+      return { ...prev, [name]: { ...entry, notes: [...entry.notes, note.trim()] } };
+    });
+  };
+
+  const removeTagFromPlayer = (name, tag) => {
+    setPlayerNotes(prev => {
+      const entry = prev[name];
+      if (!entry) return prev;
+      return { ...prev, [name]: { ...entry, tags: entry.tags.filter(t => t !== tag) } };
+    });
+  };
+
+  const removeNoteFromPlayer = (name, idx) => {
+    setPlayerNotes(prev => {
+      const entry = prev[name];
+      if (!entry) return prev;
+      return { ...prev, [name]: { ...entry, notes: entry.notes.filter((_, i) => i !== idx) } };
+    });
+  };
+
+  const clearPlayerNotes = (name) => {
+    setPlayerNotes(prev => {
+      if (!prev[name]) return prev;
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
+  };
+
   const runCampAnalysis = async () => {
     console.log("Analyze clicked, campText:", campText);
     if (!campText.trim()) {
@@ -1014,27 +1076,20 @@ export default function App() {
       });
       if (!res.ok) throw new Error(`analyze-camp responded with ${res.status}`);
       const data = await res.json();
-      const adjs = data.adjustments || [];
-      console.log("[Camp analysis] raw adjustments from /api/analyze-camp:", adjs);
-      const adjMap={};
-      adjs.forEach(a=>{
-        const entry={adj:a.adjustment, signal:a.adjustment>0?"up":a.adjustment<0?"down":"flat",
-          summary:a.reason, risk:a.risk, reward:a.reward, safety:a.safety, tags:a.tags||[]};
-        adjMap[a.name]=entry;
-        if (a.id!=null) adjMap[a.id]=entry;
-      });
-      setCampAdjs(adjMap);
-      setPlayers(prev=>{
-        const updated = prev.map(p=>{
-          const a=adjMap[p.name]||adjMap[p.id];
-          if(!a) return p;
-          return {...p, campAdj:a.adj, campSignal:a.signal, campSummary:a.summary,
-            risk:a.risk||p.risk, reward:a.reward||p.reward, safety:a.safety||p.safety, tags:a.tags?.length?a.tags:p.tags};
+      const results = data.results || [];
+      console.log("[Intel Drop analysis] raw results from /api/analyze-camp:", results);
+      setPlayerNotes(prev => {
+        const next = { ...prev };
+        results.forEach(r => {
+          if (!r.name) return;
+          const entry = next[r.name] || { tags: [], notes: [] };
+          const mergedTags = Array.from(new Set([...entry.tags, ...(r.tags || [])]));
+          const mergedNotes = r.reason ? [...entry.notes, `AI: ${r.reason}`] : entry.notes;
+          next[r.name] = { tags: mergedTags, notes: mergedNotes };
         });
-        const scores = updated.map(p=>({...p, _s:(150-p.rank)*2+(p.campAdj||0)*3}));
-        scores.sort((a,b)=>b._s-a._s);
-        return scores.map((p,i)=>({...p,rank:i+1}));
+        return next;
       });
+      setCampResults(results);
       setCampStatus("done");
       setCampLastRun(new Date());
     } catch(e) {
@@ -1080,7 +1135,6 @@ export default function App() {
           <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
             <span style={{fontWeight:700,fontSize:compact?12:13,color:"var(--text-primary)",textDecoration:isDrafted?"line-through":"none"}}>{p.name}</span>
             <span style={{marginLeft:6,fontSize:compact?10:11,fontWeight:500,color:"var(--text-secondary)"}}>{p.team}</span>
-            {p.campAdj!==undefined&&p.campAdj!==0&&<span style={{marginLeft:6,fontSize:9,color:p.campAdj>0?"#0e9f6e":"#e03e3e"}}>{p.campAdj>0?"▲":"▼"}{Math.abs(p.campAdj)}</span>}
             {p.ecrVsAdp&&p.ecrVsAdp!=="-"&&<span style={{marginLeft:6,fontSize:compact?10:11,fontWeight:800,color:ecrVsAdpColor(p.ecrVsAdp)}}>{p.ecrVsAdp}</span>}
           </span>
           <span style={{color:"var(--text-secondary)",fontSize:compact?9:10,whiteSpace:"nowrap"}}>Bye {p.bye}</span>
@@ -1100,10 +1154,18 @@ export default function App() {
             )
           ):<span/>}
           {s?<span style={{fontSize:compact?9:10,color:sosTextColor(s.e)}}>SOS {s.e}</span>:<span/>}
-          <div style={{display:"flex",flexWrap:"wrap",gap:3}}>
-            {(p.tags||[]).slice(0,3).map(t=>(
-              <span key={t} style={{fontSize:compact?7:8,fontWeight:700,padding:"2px 6px",borderRadius:3,background:`${tagColor(t)}26`,color:tagColor(t),border:`1px solid ${tagColor(t)}55`,whiteSpace:"nowrap"}}>{t}</span>
-            ))}
+          <div style={{display:"flex",flexWrap:"wrap",gap:3,alignItems:"center"}}>
+            {(() => {
+              const allTags = playerNotes[p.name]?.tags || [];
+              const visible = allTags.slice(0,3);
+              const extra = allTags.length - visible.length;
+              return <>
+                {visible.map(t=>(
+                  <span key={t} style={{fontSize:compact?7:8,fontWeight:700,padding:"2px 6px",borderRadius:3,background:`${tagColor(t)}26`,color:tagColor(t),border:`1px solid ${tagColor(t)}55`,whiteSpace:"nowrap"}}>{t}</span>
+                ))}
+                {extra>0&&<span style={{fontSize:compact?7:8,fontWeight:700,color:"var(--text-muted)"}}>+{extra}</span>}
+              </>;
+            })()}
           </div>
           {isDrafted?(
             <span style={{fontSize:8,fontWeight:800,padding:"3px 7px",borderRadius:"var(--radius)",border:"1px solid var(--text-muted)",color:"var(--text-muted)",whiteSpace:"nowrap",textAlign:"center",letterSpacing:"0.04em"}}>DRAFTED</span>
@@ -1327,7 +1389,6 @@ export default function App() {
                             <span style={{fontSize:10,color:"var(--text-muted)",fontWeight:700}}>#{i+1}</span>
                             <span style={{fontSize:15,fontWeight:800,color:"var(--text-primary)",lineHeight:1.25}}>{p.name}</span>
                             <span style={{fontSize:9,padding:"2px 5px",borderRadius:4,background:POS_COLORS[p.pos]||"#555",color:"#fff",fontWeight:700,flexShrink:0}}>{p.pos}</span>
-                            {p.campAdj!==undefined&&p.campAdj!==0&&<span style={{fontSize:9,fontWeight:700,color:p.campAdj>0?"#0e9f6e":"#e03e3e",flexShrink:0}}>{p.campAdj>0?"▲":"▼"}{Math.abs(p.campAdj)}</span>}
                           </div>
                           <span style={{fontSize:11,fontWeight:700,padding:"3px 9px",borderRadius:"var(--radius)",background:`${safetyColor(p.safety)}26`,color:safetyTextColor(p.safety),width:"fit-content"}}>{scoreLabel(p.safety)}</span>
                           <div style={{fontSize:11,color:"var(--text-secondary)",lineHeight:1.5,flex:1,display:"-webkit-box",WebkitLineClamp:3,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{getReason(p,roster,round)}</div>
@@ -1449,7 +1510,6 @@ export default function App() {
                     <span style={{fontSize:9,fontWeight:500,color:"var(--text-muted)",width:36}}>{slot}</span>
                     {p?<>
                       <span style={{fontWeight:500,fontSize:11,flex:1}}>{p.name}</span>
-                      {p.campAdj!==undefined&&p.campAdj!==0&&<span style={{fontSize:8,color:p.campAdj>0?"#0e9f6e":"#e03e3e"}}>{p.campAdj>0?"▲":"▼"}{Math.abs(p.campAdj)}</span>}
                       <span style={{fontSize:9,color:"var(--text-secondary)"}}>{p.team}</span>
                       <span style={{fontSize:8,padding:"1px 4px",borderRadius:3,background:TIER_COLORS[p.tier],color:"#fff"}}>T{p.tier}</span>
                       <span style={{fontSize:9,color:safetyTextColor(p.safety)}}>{scoreLabel(p.safety)}</span>
@@ -1513,23 +1573,21 @@ export default function App() {
 
               <div style={{display:"flex",gap:8,marginTop:8,alignItems:"center"}}>
                 <button onClick={runCampAnalysis} disabled={campStatus==="loading"||!campText.trim()} style={{fontSize:11,padding:"7px 16px",borderRadius:6,border:`2px solid var(--border-accent)`,background:"var(--bg-accent-soft)",color:"var(--text-accent)",cursor:campStatus==="loading"?"wait":"pointer",fontWeight:700}}>
-                  {campStatus==="loading"?"Analyzing...":"Analyze and apply to rankings"}
+                  {campStatus==="loading"?"Analyzing...":"Analyze and tag players"}
                 </button>
-                {campStatus==="loading"&&<span style={{fontSize:9,color:"var(--text-primary)"}}>AI reading notes, adjusting rankings...</span>}
+                {campStatus==="loading"&&<span style={{fontSize:9,color:"var(--text-primary)"}}>AI reading notes, extracting tags...</span>}
                 {campLastRun&&<span style={{fontSize:9,color:"var(--text-primary)"}}>Last run {campLastRun.toLocaleTimeString()}</span>}
               </div>
 
-              {campStatus==="done"&&Object.keys(campAdjs).length>0&&(
+              {campStatus==="done"&&campResults.length>0&&(
                 <div style={{marginTop:16}}>
-                  <div style={{fontSize:11,fontWeight:500,marginBottom:6}}>Adjustments applied to rankings</div>
+                  <div style={{fontSize:11,fontWeight:500,marginBottom:6}}>Tags added to player notes</div>
                   <div style={{display:"flex",flexDirection:"column",gap:4}}>
-                    {Object.entries(campAdjs).sort((a,b)=>Math.abs(b[1].adj)-Math.abs(a[1].adj)).map(([name,a])=>(
-                      <div key={name} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:"var(--surface-1)",borderRadius:"var(--radius)",border:"0.5px solid var(--border)",fontSize:10,flexWrap:"wrap"}}>
-                        <span style={{fontSize:13}}>{a.signal==="up"?"▲":a.signal==="down"?"▼":"—"}</span>
-                        <span style={{fontWeight:500,width:150,flexShrink:0}}>{name}</span>
-                        <span style={{color:a.adj>0?"#0e9f6e":a.adj<0?"#e03e3e":"var(--text-primary)",fontWeight:500,width:56,flexShrink:0}}>{a.adj>0?`+${a.adj}`:a.adj} spots</span>
-                        <span style={{color:"var(--text-primary)",flex:1,minWidth:120}}>{a.summary}</span>
-                        {(a.tags||[]).map(tag=>(
+                    {campResults.map((r,i)=>(
+                      <div key={`${r.name}-${i}`} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:"var(--surface-1)",borderRadius:"var(--radius)",border:"0.5px solid var(--border)",fontSize:10,flexWrap:"wrap"}}>
+                        <span style={{fontWeight:500,width:150,flexShrink:0}}>{r.name}</span>
+                        <span style={{color:"var(--text-primary)",flex:1,minWidth:120}}>{r.reason}</span>
+                        {(r.tags||[]).map(tag=>(
                           <span key={tag} style={{fontSize:8,padding:"1px 6px",borderRadius:3,background:tagColor(tag),color:"#fff"}}>{tag}</span>
                         ))}
                       </div>
@@ -1577,15 +1635,67 @@ export default function App() {
               <MeterBar label="Safety" value={selected.safety} colorFn={safetyColor}/>
             </div>
 
-            {selected.campSummary&&(
-              <div style={{background:selected.campAdj>0?"var(--bg-success)":selected.campAdj<0?"var(--bg-danger)":"var(--surface-1)",borderRadius:"var(--radius)",padding:"8px 10px",marginBottom:8}}>
-                <div style={{fontSize:8,color:"var(--text-muted)",marginBottom:3}}>Intel analysis</div>
-                <div style={{fontSize:10,fontWeight:500,color:selected.campAdj>0?"var(--text-success)":selected.campAdj<0?"var(--text-danger)":"var(--text-primary)",marginBottom:2}}>
-                  {selected.campAdj>0?`▲ Up ${selected.campAdj} spots`:selected.campAdj<0?`▼ Down ${Math.abs(selected.campAdj)} spots`:"Neutral"}
+            {(() => {
+              const entry = playerNotes[selected.name] || { tags: [], notes: [] };
+              const pickableTags = VALID_TAGS.filter(t => !entry.tags.includes(t));
+              return (
+                <div style={{background:"var(--bg-row)",borderRadius:6,padding:"9px 11px",marginBottom:8,border:`1px solid var(--border)`}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                    <div style={{fontSize:9,fontWeight:700,color:"var(--text-secondary)",textTransform:"uppercase",letterSpacing:"0.06em"}}>Tags & notes</div>
+                    {(entry.tags.length>0||entry.notes.length>0)&&
+                      <button onClick={()=>clearPlayerNotes(selected.name)} style={{fontSize:8,color:"var(--text-danger)",background:"none",border:"none",cursor:"pointer",padding:0}}>Clear all notes</button>}
+                  </div>
+
+                  <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:6}}>
+                    {entry.tags.length===0&&<span style={{fontSize:9,color:"var(--text-muted)"}}>No tags yet</span>}
+                    {entry.tags.map(tag=>(
+                      <span key={tag} style={{display:"inline-flex",alignItems:"center",gap:3,fontSize:8,fontWeight:700,padding:"2px 6px",borderRadius:3,background:`${tagColor(tag)}26`,color:tagColor(tag),border:`1px solid ${tagColor(tag)}55`}}>
+                        {tag}
+                        <span onClick={()=>removeTagFromPlayer(selected.name,tag)} style={{cursor:"pointer",fontWeight:800,marginLeft:1}}>✕</span>
+                      </span>
+                    ))}
+                  </div>
+
+                  <div style={{display:"flex",gap:4,marginBottom:10}}>
+                    <select value={tagPick} onChange={e=>setTagPick(e.target.value)} style={{flex:1,fontSize:9,padding:"4px 5px",borderRadius:4,border:`1px solid var(--border)`,background:"var(--bg-row)",color:"var(--text-primary)"}}>
+                      <option value="">Select tag…</option>
+                      {pickableTags.map(t=><option key={t} value={t}>{t}</option>)}
+                    </select>
+                    <button
+                      onClick={()=>{ if(tagPick){ addTagsToPlayer(selected.name,[tagPick]); setTagPick(""); } }}
+                      disabled={!tagPick}
+                      style={{fontSize:9,padding:"4px 8px",borderRadius:4,border:`1px solid var(--border-accent)`,background:"var(--bg-accent-soft)",color:"var(--text-accent)",cursor:tagPick?"pointer":"not-allowed",opacity:tagPick?1:0.5,whiteSpace:"nowrap"}}
+                    >Add tag</button>
+                  </div>
+
+                  <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:6}}>
+                    {entry.notes.length===0&&<span style={{fontSize:9,color:"var(--text-muted)"}}>No notes yet</span>}
+                    {entry.notes.map((note,i)=>(
+                      <div key={i} style={{display:"flex",alignItems:"flex-start",gap:6,fontSize:9,color:"var(--text-secondary)",background:"var(--surface-1)",borderRadius:4,padding:"4px 6px"}}>
+                        <span style={{flex:1,lineHeight:1.4}}>{note}</span>
+                        <span onClick={()=>removeNoteFromPlayer(selected.name,i)} style={{cursor:"pointer",color:"var(--text-muted)",fontWeight:800}}>✕</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{display:"flex",gap:4}}>
+                    <input
+                      type="text"
+                      value={notePick}
+                      onChange={e=>setNotePick(e.target.value)}
+                      onKeyDown={e=>{ if(e.key==="Enter"&&notePick.trim()){ addNoteToPlayer(selected.name,notePick); setNotePick(""); } }}
+                      placeholder="Add a note…"
+                      style={{flex:1,fontSize:9,padding:"4px 6px",borderRadius:4,border:`1px solid var(--border)`,background:"var(--bg-row)",color:"var(--text-primary)"}}
+                    />
+                    <button
+                      onClick={()=>{ if(notePick.trim()){ addNoteToPlayer(selected.name,notePick); setNotePick(""); } }}
+                      disabled={!notePick.trim()}
+                      style={{fontSize:9,padding:"4px 8px",borderRadius:4,border:`1px solid var(--border-accent)`,background:"var(--bg-accent-soft)",color:"var(--text-accent)",cursor:notePick.trim()?"pointer":"not-allowed",opacity:notePick.trim()?1:0.5,whiteSpace:"nowrap"}}
+                    >Add note</button>
+                  </div>
                 </div>
-                <div style={{fontSize:9,color:"var(--text-secondary)"}}>{selected.campSummary}</div>
-              </div>
-            )}
+              );
+            })()}
 
             {(selected.pos==="RB"||selected.pos==="WR"||selected.pos==="QB")&&(()=>{
               const ol=olineGrade(selected.team,selected.pos);
@@ -1691,7 +1801,6 @@ function MockTab({teams, draftPos, players, getRecs, getReason}) {
             <div key={p.id} onClick={()=>advance(p,true)} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",background:"var(--bg-accent)",border:"0.5px solid var(--border-accent)",borderRadius:"var(--radius)",cursor:"pointer",marginBottom:4}}>
               <span style={{fontSize:9,color:"var(--text-muted)",width:14}}>#{i+1}</span>
               <span style={{fontWeight:500,fontSize:11,flex:1}}>{p.name}</span>
-              {p.campAdj!==undefined&&p.campAdj!==0&&<span style={{fontSize:8,color:p.campAdj>0?"#0e9f6e":"#e03e3e"}}>{p.campAdj>0?"▲":"▼"}{Math.abs(p.campAdj)}</span>}
               <span style={{fontSize:8,padding:"1px 4px",borderRadius:3,background:POS_COLORS[p.pos]||"#555",color:"#fff"}}>{p.pos}</span>
               <span style={{fontSize:9,color:"var(--text-secondary)"}}>{p.team}</span>
             </div>

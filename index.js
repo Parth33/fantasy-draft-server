@@ -67,7 +67,7 @@ app.post("/api/analyze-camp", async (req, res) => {
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
         max_tokens: 1500,
-        system: "You are a fantasy football analyst. Analyze the following mix of player news, injury reports, and analyst commentary. For each player clearly discussed, output a JSON array where each item has: { name, adjustment (number -5 to +5), tags (array), reason (one short sentence) }. Tags should describe the player's ROLE and analyst SENTIMENT. Valid tags: Workhorse, Committee Back, WR1 Role, Target Hog, Depth Only, Handcuff, Boom/Bust, Analyst Favorite, Analyst Fade, Injury Risk, Breakout, Bounce Back, Rookie Riser, Aging Concern, Situation Change. Apply tags only when the text clearly supports them. Most players get 0-2 tags. Return only the JSON array.",
+        system: "You are a fantasy football analyst. Analyze the following mix of player news, injury reports, and analyst commentary. For each player clearly discussed, output a JSON array where each item has: { name, tags (array), reason (one short sentence) }. Tags should describe the player's ROLE and analyst SENTIMENT. Valid tags: Workhorse, Committee Back, WR1 Role, Target Hog, Depth Only, Handcuff, Boom/Bust, Analyst Favorite, Analyst Fade, Injury Risk, Breakout, Bounce Back, Rookie Riser, Aging Concern, Situation Change. Apply tags only when the text clearly supports them. Most players get 0-2 tags. Return only the JSON array.",
         messages: [{ role: "user", content: campText }],
       }),
     });
@@ -75,8 +75,8 @@ app.post("/api/analyze-camp", async (req, res) => {
     const data = await response.json();
     const raw = data.content?.find(b => b.type === "text")?.text || "[]";
     const cleaned = raw.replace(/```json|```/g, "").trim();
-    const adjustments = JSON.parse(cleaned);
-    res.json({ adjustments });
+    const results = JSON.parse(cleaned);
+    res.json({ results });
   } catch (err) {
     console.error("Analyze camp error:", err.message);
     res.status(500).json({ error: "Failed to analyze camp intel" });
