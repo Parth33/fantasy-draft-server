@@ -613,64 +613,6 @@ function saveLS(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
 }
 
-const FP_CACHE_MS = 24 * 60 * 60 * 1000;
-
-function extractNewsItems(newsData) {
-  const items = newsData?.items || newsData?.news || newsData?.data || (Array.isArray(newsData) ? newsData : []);
-  return [...items].sort((a, b) => {
-    const da = new Date(a.created || a.date || a.published_at || a.updated || 0).getTime();
-    const db = new Date(b.created || b.date || b.published_at || b.updated || 0).getTime();
-    return db - da;
-  });
-}
-
-// FantasyPros news items don't include a dedicated player-name field — the name
-// is embedded as the leading capitalized run of words in the title, e.g.
-// "Khalil Herbert signs contract with 49ers" -> "Khalil Herbert".
-function extractPlayerNameFromTitle(title) {
-  if (!title) return "";
-  const words = title.trim().split(/\s+/);
-  const nameWords = [];
-  for (const w of words) {
-    if (/^[A-Z]/.test(w)) nameWords.push(w);
-    else break;
-  }
-  return nameWords.join(" ");
-}
-
-function formatFpNews(newsData) {
-  const items = extractNewsItems(newsData);
-  return items.map(n => {
-    const name = n.player_name || n.name || n.player?.name || extractPlayerNameFromTitle(n.title) || "Unknown Player";
-    const team = n.team_id || n.team || n.player?.team || "";
-    const desc = n.desc || n.description || n.title || "";
-    const impact = n.impact || n.analysis || "";
-    return `${name}${team ? ` (${team})` : ""}: ${desc}${impact ? `. Impact: ${impact}` : ""}`;
-  }).join("\n");
-}
-
-function extractInjuryItems(injuriesData) {
-  return injuriesData?.injuries || injuriesData?.data || (Array.isArray(injuriesData) ? injuriesData : []);
-}
-
-function formatFpInjuries(injuriesData) {
-  const items = extractInjuryItems(injuriesData);
-  return items.map(inj => {
-    const name = inj.name || inj.player_name || inj.player?.name || "Unknown Player";
-    const team = inj.team_id || "";
-    const posId = inj.position_id || inj.position || inj.pos || "";
-    const statusShort = inj.status_short || inj.status || "";
-    const injuryType = inj.injury_type || inj.type || "no details";
-    return `${name} (${team}, ${posId}): ${statusShort} - ${injuryType}`;
-  }).join("\n");
-}
-
-function formatCampIntel(newsData, injuriesData) {
-  const newsText = formatFpNews(newsData);
-  const injuriesText = formatFpInjuries(injuriesData);
-  return [newsText, injuriesText].filter(Boolean).join("\n\n");
-}
-
 export default function App() {
   const [league, setLeague] = useState(() => loadLS(LS_KEYS.league, 0));
   const [draftedIds, setDraftedIds] = useState(() => loadLS(LS_KEYS.drafted, [[],[]]));
@@ -693,8 +635,6 @@ export default function App() {
   const [campStatus, setCampStatus] = useState("idle");
   const [campResults, setCampResults] = useState([]);
   const [campLastRun, setCampLastRun] = useState(null);
-  const [fetchStatus, setFetchStatus] = useState("idle");
-  const [fpLastUpdated, setFpLastUpdated] = useState(null);
   const [recentPicks, setRecentPicks] = useState([]);
   const [theme, setTheme] = useState("dark");
   const [importInfo, setImportInfo] = useState(null);
@@ -974,49 +914,6 @@ export default function App() {
       e.target.value = "";
     }
   };
-
-  const fetchFantasyProsData = async () => {
-    setFetchStatus("loading");
-    try {
-      const [newsRes, injuriesRes] = await Promise.all([
-        fetch(`${SERVER}/api/fantasypros/news`),
-        fetch(`${SERVER}/api/fantasypros/injuries`),
-      ]);
-      const newsData = await newsRes.json();
-      const injuriesData = await injuriesRes.json();
-      console.log("FantasyPros news response:", newsData);
-      console.log("FantasyPros injuries response:", injuriesData);
-      const ts = Date.now();
-      localStorage.setItem("fp_news_cache", JSON.stringify(newsData));
-      localStorage.setItem("fp_injuries_cache", JSON.stringify(injuriesData));
-      localStorage.setItem("fp_cache_timestamp", String(ts));
-      setFpLastUpdated(ts);
-      setCampText(formatCampIntel(newsData, injuriesData));
-      setFetchStatus("done");
-    } catch (e) {
-      setFetchStatus("error");
-    }
-  };
-
-  useEffect(() => {
-    const ts = Number(localStorage.getItem("fp_cache_timestamp"));
-    const cachedNews = localStorage.getItem("fp_news_cache");
-    const cachedInjuries = localStorage.getItem("fp_injuries_cache");
-    if (ts && cachedNews && Date.now() - ts < FP_CACHE_MS) {
-      try {
-        const newsData = JSON.parse(cachedNews);
-        const injuriesData = cachedInjuries ? JSON.parse(cachedInjuries) : null;
-        console.log("FantasyPros news (cached):", newsData);
-        console.log("FantasyPros injuries (cached):", injuriesData);
-        setCampText(formatCampIntel(newsData, injuriesData));
-        setFpLastUpdated(ts);
-      } catch {
-        fetchFantasyProsData();
-      }
-    } else {
-      fetchFantasyProsData();
-    }
-  }, []);
 
   // Adds tags to a player's persistent note entry, deduplicating against what's already there.
   const addTagsToPlayer = (name, tags) => {
@@ -1558,18 +1455,7 @@ export default function App() {
             <div>
               <div style={{fontSize:12,fontWeight:500,marginBottom:10}}>Intel Drop</div>
 
-              <div style={{display:"flex",gap:8,marginBottom:16,alignItems:"center",flexWrap:"wrap"}}>
-                <button onClick={fetchFantasyProsData} disabled={fetchStatus==="loading"} style={{fontSize:11,padding:"7px 14px",borderRadius:6,border:`1px solid var(--border)`,background:"var(--bg-card)",cursor:fetchStatus==="loading"?"wait":"pointer",color:"var(--text-primary)",fontWeight:500}}>
-                  {fetchStatus==="loading"?"Refreshing...":"Refresh FantasyPros"}
-                </button>
-                {fetchStatus==="error"&&<span style={{fontSize:10,color:"var(--text-danger)"}}>Fetch failed — paste notes manually below</span>}
-                <span style={{fontSize:11,color:"var(--text-primary)"}}>
-                  {fpLastUpdated?`Last updated: ${new Date(fpLastUpdated).toLocaleString()}`:"Not yet fetched"}
-                </span>
-              </div>
-
-              <div style={{fontSize:10,color:"var(--text-primary)",marginBottom:4}}>Paste anything — analyst articles, tweets, camp reports, Reddit threads, podcast notes. The AI will extract player intel and tag them.</div>
-              <textarea value={campText} onChange={e=>setCampText(e.target.value)} placeholder="FantasyPros news/injuries load here automatically — paste additional text below them." style={{width:"100%",minHeight:260,fontSize:10,fontFamily:"system-ui,sans-serif",lineHeight:1.6,resize:"vertical",boxSizing:"border-box",padding:10,borderRadius:6,border:`1px solid var(--border)`,background:"var(--bg-row)",color:"var(--text-primary)"}}/>
+              <textarea value={campText} onChange={e=>setCampText(e.target.value)} placeholder="Paste anything — analyst articles, tweets, camp reports, Reddit threads, podcast notes. The AI will extract player intel and tag them." style={{width:"100%",minHeight:260,fontSize:10,fontFamily:"system-ui,sans-serif",lineHeight:1.6,resize:"vertical",boxSizing:"border-box",padding:10,borderRadius:6,border:`1px solid var(--border)`,background:"var(--bg-row)",color:"var(--text-primary)"}}/>
 
               <div style={{display:"flex",gap:8,marginTop:8,alignItems:"center"}}>
                 <button onClick={runCampAnalysis} disabled={campStatus==="loading"||!campText.trim()} style={{fontSize:11,padding:"7px 16px",borderRadius:6,border:`2px solid var(--border-accent)`,background:"var(--bg-accent-soft)",color:"var(--text-accent)",cursor:campStatus==="loading"?"wait":"pointer",fontWeight:700}}>
