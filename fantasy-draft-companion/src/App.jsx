@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef, Fragment } from "react";
 
 const SERVER = "https://fantasy-draft-server-production.up.railway.app";
 
@@ -662,6 +662,35 @@ function saveLS(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
 }
 
+// Snake draft pick numbers for a given slot across `rounds` rounds. Round r (1-indexed):
+// odd rounds go S, N+S, 2N+S...; even rounds reverse to N-S+1, 2N+(N-S+1)...
+// e.g. slot 8, 12 teams -> 8, 17, 32, 41, 56, 65, 80, 89, 104, 113, 128, 137, 152, 161, 176
+function computeSnakePicks(slot, teamsCount, rounds = 15) {
+  const picks = [];
+  for (let r = 1; r <= rounds; r++) {
+    const p = r % 2 === 1 ? (r - 1) * teamsCount + slot : (r - 1) * teamsCount + (teamsCount - slot + 1);
+    picks.push(p);
+  }
+  return picks;
+}
+
+// Horizontal divider marking where one of the user's upcoming snake-draft picks falls in the
+// rankings list. The immediate next pick is a bold gold bar; picks after that fade to a
+// thinner blue dashed line so the list stays readable further down.
+function PickMarkerRow({ marker }) {
+  const { pickNum, picksAway, isNext } = marker;
+  const color = isNext ? "var(--text-warning)" : "var(--text-accent)";
+  return (
+    <div style={{display:"flex",alignItems:"center",gap:8,padding:isNext?"7px 12px":"4px 12px",background:isNext?"rgba(210,153,34,0.16)":"transparent"}}>
+      <div style={{flex:1,height:isNext?2:1,background:color,opacity:isNext?1:0.55,borderRadius:1}}/>
+      <span style={{fontSize:isNext?11:9,fontWeight:800,color,whiteSpace:"nowrap",letterSpacing:"0.03em"}}>
+        {isNext ? `⬇ YOUR PICK #${pickNum} — ${picksAway} pick${picksAway===1?"":"s"} away` : `YOUR PICK #${pickNum}`}
+      </span>
+      <div style={{flex:1,height:isNext?2:1,background:color,opacity:isNext?1:0.55,borderRadius:1}}/>
+    </div>
+  );
+}
+
 export default function App() {
   const [league, setLeague] = useState(() => loadLS(LS_KEYS.league, 0));
   const [draftedIds, setDraftedIds] = useState(() => loadLS(LS_KEYS.drafted, [[],[]]));
@@ -673,7 +702,7 @@ export default function App() {
   const [selected, setSelected] = useState(null);
   const [round, setRound] = useState(() => loadLS(LS_KEYS.round, 1));
   const [pick, setPick] = useState(() => loadLS(LS_KEYS.pick, 1));
-  const [draftPosByLeague, setDraftPosByLeague] = useState(() => loadLS(LS_KEYS.draftPos, [1,1]));
+  const [draftPosByLeague, setDraftPosByLeague] = useState(() => loadLS(LS_KEYS.draftPos, [8,1]));
   const draftPos = draftPosByLeague[league];
   const setDraftPos = useCallback((val) => {
     setDraftPosByLeague(prev => { const n=[...prev]; n[league]=val; return n; });
@@ -755,6 +784,34 @@ export default function App() {
   }), [showDrafted, players, available, posFilter, search]);
 
   const sorted = useMemo(() => [...filtered].sort((a,b)=>a.rank-b.rank), [filtered]);
+
+  // The user's full snake-draft pick sequence for their slot, and which of those are still ahead.
+  const myPicks = useMemo(() => computeSnakePicks(draftPos, teams, 15), [draftPos, teams]);
+  const currentOverallPick = drafted.length;
+  const upcomingMyPicks = useMemo(() => (
+    myPicks.filter(p => p > currentOverallPick).slice(0, 4).map((p, idx) => ({
+      pickNum: p, picksAway: p - currentOverallPick - 1, isNext: idx === 0,
+    }))
+  ), [myPicks, currentOverallPick]);
+  const nextPick = upcomingMyPicks[0] || null;
+
+  // Maps a position in the rendered `sorted` list to the pick markers that belong right after it,
+  // counting only non-drafted players — matches "N available players from the top" from the spec.
+  // Key -1 holds markers that land before the very first row (picksAway === 0).
+  const pickMarkersAfterIndex = useMemo(() => {
+    const map = new Map();
+    if (!upcomingMyPicks.length) return map;
+    const queue = [...upcomingMyPicks];
+    const push = (key, marker) => map.set(key, [...(map.get(key) || []), marker]);
+    while (queue.length && queue[0].picksAway === 0) push(-1, queue.shift());
+    let availableCount = 0;
+    sorted.forEach((p, i) => {
+      if (drafted.includes(p.id)) return;
+      availableCount++;
+      while (queue.length && queue[0].picksAway === availableCount) push(i, queue.shift());
+    });
+    return map;
+  }, [sorted, drafted, upcomingMyPicks]);
 
   const recs = useMemo(() => getRecs(available, roster, round, effectiveDefMap), [available, roster, round, effectiveDefMap]);
 
@@ -1235,8 +1292,13 @@ export default function App() {
         <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
           {isMyTurn&&<span style={{fontSize:10,padding:"3px 8px",borderRadius:"var(--radius)",background:"var(--bg-success)",color:"var(--text-success)",fontWeight:500}}>Your pick</span>}
           <span style={{fontSize:10,color:"var(--text-secondary)"}}>R{round} P{pick}</span>
-          <span style={{fontSize:9,color:"var(--text-muted)"}}>Pos</span>
-          <input type="number" min={1} max={teams} value={draftPos} onChange={e=>setDraftPos(Number(e.target.value))} style={{width:36,fontSize:10,textAlign:"center"}}/>
+          <span style={{fontSize:11,color:"var(--text-secondary)"}}>Slot</span>
+          <input type="number" min={1} max={teams} value={draftPos} onChange={e=>setDraftPos(Number(e.target.value))} title="Your draft slot (1-based position in the draft order)" style={{width:36,fontSize:10,textAlign:"center"}}/>
+          {nextPick&&(
+            <span style={{fontSize:10,fontWeight:700,padding:"3px 8px",borderRadius:"var(--radius)",background:"rgba(210,153,34,0.16)",color:"var(--text-warning)"}}>
+              {nextPick.picksAway===0?"You're on the clock":`${nextPick.picksAway} pick${nextPick.picksAway===1?"":"s"} until your turn`}
+            </span>
+          )}
           <input ref={fileInputRef} type="file" accept=".csv" multiple onChange={handleImportFiles} style={{display:"none"}}/>
           <button onClick={()=>fileInputRef.current?.click()} style={{fontSize:10,padding:"3px 9px",borderRadius:6,border:`1px solid var(--border)`,background:"transparent",cursor:"pointer",color:"var(--text-secondary)"}}>
             ⬆ Import Rankings CSV
@@ -1444,7 +1506,13 @@ export default function App() {
                     <div style={{display:"grid",gridTemplateColumns:ROW_COLS,gap:8,padding:"7px 12px",fontSize:10,fontWeight:700,color:"var(--text-secondary)",textTransform:"uppercase",letterSpacing:"0.04em",background:"var(--bg-card)",borderBottom:"1px solid var(--border)"}}>
                       <span style={{textAlign:"right"}}>#</span><span>Pos</span><span>Player</span><span>Bye</span><span>O-Line</span><span>Defense</span><span>SOS</span><span>Notes</span><span></span>
                     </div>
-                    {sorted.map((p,i)=><PlayerRow key={p.id} p={p} index={i}/>)}
+                    {pickMarkersAfterIndex.get(-1)?.map(m=><PickMarkerRow key={m.pickNum} marker={m}/>)}
+                    {sorted.map((p,i)=>(
+                      <Fragment key={p.id}>
+                        <PlayerRow p={p} index={i}/>
+                        {pickMarkersAfterIndex.get(i)?.map(m=><PickMarkerRow key={m.pickNum} marker={m}/>)}
+                      </Fragment>
+                    ))}
                   </div>
                 </div>
 
