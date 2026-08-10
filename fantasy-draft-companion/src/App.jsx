@@ -1067,6 +1067,23 @@ export default function App() {
       const rows = parseFantasyProsRows(text, null);
       const withNotes = rows.filter(r => r.notes);
       setCampText(withNotes.map(r => `${r.name} (${r.team}, ${r.pos}): ${r.notes}`).join("\n"));
+
+      // The main Rankings CSV has no BYE WEEK column, but the Notes CSV does — pull it out here
+      // and attach it to matching players (by normalized name) everywhere a player object lives,
+      // so bye weeks show up on the board even for players drafted before this import.
+      const byeByName = new Map();
+      rows.forEach(r => { if (r.bye != null) byeByName.set(normalizeName(r.name), r.bye); });
+      if (byeByName.size) {
+        const applyBye = p => {
+          if (!p) return p;
+          const bye = byeByName.get(normalizeName(p.name));
+          return (bye != null && bye !== p.bye) ? { ...p, bye } : p;
+        };
+        setPlayers(prev => prev.map(applyBye));
+        setRosters(prev => prev.map(teamRoster => teamRoster.map(applyBye)));
+        setSelected(prev => applyBye(prev));
+      }
+
       setNotesImportError(null);
       setNotesImportInfo({ count: withNotes.length, timestamp: new Date() });
     } catch (err) {
