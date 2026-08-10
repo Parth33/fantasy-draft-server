@@ -699,6 +699,7 @@ export default function App() {
   const [posFilter, setPosFilter] = useState("ALL");
   const [search, setSearch] = useState("");
   const [showDrafted, setShowDrafted] = useState(false);
+  const [quickDraftMode, setQuickDraftMode] = useState(false);
   const [selected, setSelected] = useState(null);
   const [round, setRound] = useState(() => loadLS(LS_KEYS.round, 1));
   const [pick, setPick] = useState(() => loadLS(LS_KEYS.pick, 1));
@@ -955,9 +956,30 @@ export default function App() {
     setSelected(null);
   }, [league, pick, teams, roster]);
 
+  // Undoes the most recent mark for the current league — whether it was sent to My Team or just
+  // marked Drafted — popping draftedIds like a stack and, if it had been added to the roster,
+  // clearing that roster slot too so the two stay in sync.
+  const lastDraftedId = drafted[drafted.length - 1] ?? null;
+  const lastDraftedPlayer = lastDraftedId != null ? players.find(pl => pl.id === lastDraftedId) : null;
   const undoLast = () => {
+    if (lastDraftedId == null) return;
+    const wasMine = roster.some(r => r && r.id === lastDraftedId);
     setDraftedIds(prev=>{const n=[...prev];n[league]=n[league].slice(0,-1);return n;});
-    setPick(p=>Math.max(1,p-1));
+    if (wasMine) {
+      setRosters(prev=>{
+        const n=[...prev];
+        const teamRoster=[...n[league]];
+        const idx = teamRoster.findIndex(r => r && r.id === lastDraftedId);
+        if (idx !== -1) teamRoster[idx] = null;
+        n[league]=teamRoster;
+        return n;
+      });
+    }
+    setPick(p=>{
+      const newPick = Math.max(1,p-1);
+      setRound(Math.floor((newPick-1)/teams)+1);
+      return newPick;
+    });
     setRecentPicks(prev=>prev.slice(0,-1));
   };
 
@@ -1168,11 +1190,35 @@ export default function App() {
     const mineBlocked = rosterFull || noSlot;
     const [hoverMine, setHoverMine] = useState(false);
     const [hoverGone, setHoverGone] = useState(false);
+    // Quick-mark flash: shows a brief colored confirmation on the row, then commits the actual
+    // mark once the flash has had time to be seen (green = drafted by someone, blue = my team).
+    const [flash, setFlash] = useState(null);
+    useEffect(() => {
+      if (!flash) return;
+      const t = setTimeout(() => setFlash(null), 300);
+      return () => clearTimeout(t);
+    }, [flash]);
+    const quickMark = (isMine) => {
+      if (flash || isDrafted) return;
+      setFlash(isMine ? "blue" : "green");
+      setTimeout(() => markDrafted(p, isMine), 300);
+    };
+    const rowBg = flash==="green" ? "#22c55e4d" : flash==="blue" ? "#3b82f64d" : (isSel?"var(--bg-row-sel)":isRec?"#1e3a5f":zebra);
     return (
-      <div onClick={()=>setSelected(p)} className="player-row" style={{background:isSel?"var(--bg-row-sel)":isRec?"#1e3a5f":zebra,boxShadow:isSel?"inset 0 0 0 1px var(--border-accent)":"none",borderBottom:"1px solid var(--border)",borderLeft:isRec?"3px solid #60a5fa":`4px solid ${POS_COLORS[p.pos]||"#555"}`,cursor:"pointer",transition:"background 0.1s, filter 0.1s",opacity:isDrafted?0.45:1}}>
+      <div
+        onClick={()=>{
+          if (isDrafted) { setSelected(p); return; }
+          if (quickDraftMode) { quickMark(false); return; }
+          setSelected(p);
+        }}
+        className="player-row"
+        style={{background:rowBg,boxShadow:isSel?"inset 0 0 0 1px var(--border-accent)":"none",borderBottom:"1px solid var(--border)",borderLeft:isRec?"3px solid #60a5fa":`4px solid ${POS_COLORS[p.pos]||"#555"}`,cursor:"pointer",transition:"background 0.15s, filter 0.1s",opacity:isDrafted?0.45:1}}>
         <div style={{display:"grid",gridTemplateColumns:compact?ROW_COLS_COMPACT:ROW_COLS,gap:compact?3:8,alignItems:"center",padding:compact?"6px 6px":"8px 12px",fontSize:compact?11:12}}>
           <span style={{color:"var(--text-secondary)",fontWeight:700,textAlign:"right"}}>{p.rank}</span>
-          <span style={{fontSize:compact?9:10,fontWeight:800,padding:"2px 5px",borderRadius:4,background:POS_COLORS[p.pos]||"#555",color:"#fff",textAlign:"center",letterSpacing:"0.04em",border:"1px solid rgba(255,255,255,0.3)"}}>{p.pos}</span>
+          <span
+            onClick={e=>{e.stopPropagation();if(isDrafted)return;if(mineBlocked){markDrafted(p,true);return;}quickMark(true);}}
+            title={isDrafted?p.pos:mineBlocked?(rosterFull?"Roster full (15/15)":`No slot available for ${p.pos}`):"Click to add to My Team"}
+            style={{fontSize:compact?9:10,fontWeight:800,padding:"2px 5px",borderRadius:4,background:POS_COLORS[p.pos]||"#555",color:"#fff",textAlign:"center",letterSpacing:"0.04em",border:"1px solid rgba(255,255,255,0.3)",cursor:isDrafted?"default":"pointer"}}>{p.pos}</span>
           <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
             <span style={{fontWeight:700,fontSize:compact?12:13,color:"var(--text-primary)",textDecoration:isDrafted?"line-through":"none"}}>{p.name}</span>
             <span style={{marginLeft:6,fontSize:compact?10:11,fontWeight:500,color:"var(--text-secondary)"}}>{p.team}</span>
@@ -1252,6 +1298,39 @@ export default function App() {
     );
   };
 
+  // Compact row used in the "By tier" cheat sheet columns. No position badge here (the column
+  // header already carries the position), so quick-mark only covers row-click -> Drafted.
+  const TierPlayerRow = ({p, isRec, zebra}) => {
+    const isDrafted = drafted.includes(p.id);
+    const [flash, setFlash] = useState(null);
+    useEffect(() => {
+      if (!flash) return;
+      const t = setTimeout(() => setFlash(null), 300);
+      return () => clearTimeout(t);
+    }, [flash]);
+    return (
+      <div
+        key={p.id}
+        onClick={()=>{
+          if (isDrafted) { setSelected(p); return; }
+          if (quickDraftMode) {
+            if (flash) return;
+            setFlash("green");
+            setTimeout(() => markDrafted(p, false), 300);
+            return;
+          }
+          setSelected(p);
+        }}
+        title={`${p.name} (${p.team})`}
+        className="player-row"
+        style={{display:"flex",alignItems:"baseline",gap:3,padding:"2px 5px",cursor:"pointer",minWidth:0,background:flash==="green"?"#22c55e4d":(isRec?"#1a2a4a":zebra),borderLeft:isRec?"3px solid #3b82f6":"3px solid transparent",opacity:isDrafted?0.45:1,transition:"background 0.15s"}}>
+        <span style={{fontSize:9,fontWeight:700,color:"var(--text-secondary)",minWidth:32,flexShrink:0,textAlign:"right"}}>{p.rank}</span>
+        <span style={{fontSize:9,fontWeight:600,color:"var(--text-primary)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1,minWidth:0,textDecoration:isDrafted?"line-through":"none"}}>{p.name}</span>
+        <span style={{fontSize:8,fontWeight:600,color:"var(--text-secondary)",flexShrink:0}}>{p.team}</span>
+      </div>
+    );
+  };
+
   return (
     <div style={{fontFamily:"system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",color:"var(--text-primary)",background:"var(--bg-app)",minHeight:"100vh"}}>
       <style>{`
@@ -1319,7 +1398,12 @@ export default function App() {
           <button onClick={()=>setTheme(t=>t==="dark"?"light":"dark")} style={{fontSize:10,padding:"3px 9px",borderRadius:6,border:`1px solid var(--border)`,background:"transparent",cursor:"pointer",color:"var(--text-secondary)",display:"flex",alignItems:"center",gap:4}}>
             {theme==="dark"?"☀ Light":"🌙 Dark"}
           </button>
-          <button onClick={undoLast} style={{fontSize:9,padding:"3px 8px",borderRadius:6,border:`1px solid var(--border)`,background:"transparent",cursor:"pointer",color:"var(--text-secondary)"}}>Undo</button>
+          <button
+            onClick={undoLast}
+            disabled={lastDraftedId==null}
+            title={lastDraftedPlayer?`Undo: ${lastDraftedPlayer.name}`:"Nothing to undo"}
+            style={{fontSize:10,fontWeight:700,padding:"5px 12px",borderRadius:6,border:`1px solid ${lastDraftedId==null?"var(--border)":"var(--text-warning)"}`,background:lastDraftedId==null?"transparent":"var(--bg-warn)",cursor:lastDraftedId==null?"not-allowed":"pointer",color:lastDraftedId==null?"var(--text-muted)":"var(--text-warning)",opacity:lastDraftedId==null?0.6:1}}
+          >↺ Undo Last Pick</button>
           <button onClick={resetDraft} title="Clear all picks and rosters, keep imported rankings" style={{fontSize:9,padding:"3px 8px",borderRadius:6,border:`1px solid var(--text-warning)`,background:"transparent",cursor:"pointer",color:"var(--text-warning)"}}>Reset Draft</button>
           <button onClick={clearAll} title="Reset everything, including rankings, to defaults" style={{fontSize:9,padding:"3px 8px",borderRadius:6,border:`1px solid var(--text-danger)`,background:"transparent",cursor:"pointer",color:"var(--text-danger)"}}>Clear All</button>
         </div>
@@ -1488,6 +1572,11 @@ export default function App() {
               <div style={{display:"flex",gap:6,marginBottom:8,alignItems:"center",flexWrap:"wrap"}}>
                 <input type="text" placeholder="Search..." value={search} onChange={e=>setSearch(e.target.value)} style={{width:220,fontSize:13,padding:"8px 12px",borderRadius:8,border:"1px solid var(--border)",background:"var(--bg-row)",color:"var(--text-primary)"}}/>
                 <button onClick={()=>setShowDrafted(v=>!v)} style={{fontSize:12,fontWeight:500,padding:"7px 13px",borderRadius:"var(--radius)",border:"0.5px solid var(--border-strong)",background:showDrafted?"var(--fill-accent)":"transparent",color:showDrafted?"var(--on-accent)":"var(--text-secondary)",cursor:"pointer",whiteSpace:"nowrap"}}>{showDrafted?"✓ ":""}Show drafted</button>
+                <button
+                  onClick={()=>setQuickDraftMode(v=>!v)}
+                  title="When on: click anywhere on a row to mark that player Drafted. Click a position badge to send them to My Team — always works."
+                  style={{fontSize:12,fontWeight:600,padding:"7px 13px",borderRadius:"var(--radius)",border:`0.5px solid ${quickDraftMode?"var(--sig-green)":"var(--border-strong)"}`,background:quickDraftMode?"var(--bg-success)":"transparent",color:quickDraftMode?"var(--text-success)":"var(--text-secondary)",cursor:"pointer",whiteSpace:"nowrap"}}
+                >{quickDraftMode?"⚡ Quick Draft: ON":"⚡ Quick Draft Mode"}</button>
                 <div style={{display:"flex",gap:4}}>
                   {POSITIONS.map(pos=>(
                     <button key={pos} onClick={()=>setPosFilter(pos)} style={{fontSize:12,fontWeight:500,padding:"7px 13px",borderRadius:"var(--radius)",border:"0.5px solid var(--border-strong)",background:posFilter===pos?"var(--fill-accent)":"transparent",color:posFilter===pos?"var(--on-accent)":"var(--text-secondary)",cursor:"pointer"}}>{pos}</button>
@@ -1545,13 +1634,7 @@ export default function App() {
                                 {ps.map((p,pi)=>{
                                   const isRec=recs.some(r=>r.id===p.id);
                                   const zebra=pi%2===1?"var(--bg-row-alt)":"var(--bg-row)";
-                                  return (
-                                    <div key={p.id} onClick={()=>setSelected(p)} title={`${p.name} (${p.team})`} className="player-row" style={{display:"flex",alignItems:"baseline",gap:3,padding:"2px 5px",cursor:"pointer",minWidth:0,background:isRec?"#1a2a4a":zebra,borderLeft:isRec?"3px solid #3b82f6":"3px solid transparent"}}>
-                                      <span style={{fontSize:9,fontWeight:700,color:"var(--text-secondary)",minWidth:32,flexShrink:0,textAlign:"right"}}>{p.rank}</span>
-                                      <span style={{fontSize:9,fontWeight:600,color:"var(--text-primary)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1,minWidth:0}}>{p.name}</span>
-                                      <span style={{fontSize:8,fontWeight:600,color:"var(--text-secondary)",flexShrink:0}}>{p.team}</span>
-                                    </div>
-                                  );
+                                  return <TierPlayerRow key={p.id} p={p} isRec={isRec} zebra={zebra}/>;
                                 })}
                               </div>
                             );
