@@ -352,10 +352,14 @@ function scoreTier(v) {
 }
 function scoreLabel(v) { return typeof v === "number" ? scoreTier(v).label : v; }
 function riskColor(r) { if (typeof r === "number") return scoreTier(r).color; return r==="Low"?"#0e9f6e":r==="Slight"?"#1a56db":r==="Medium"?"#c27803":"#9b1c1c"; }
+// Theme-aware readable text variant of riskColor (raw riskColor fill is too dim as text on dark backgrounds)
+function riskTextColor(r) { if (typeof r === "number") return scoreTier(r).textColor; return r==="Low"?"var(--sig-green)":r==="Slight"?"var(--sig-blue)":r==="Medium"?"var(--sig-amber)":"var(--sig-red)"; }
 function safetyColor(s) { if (typeof s === "number") return scoreTier(s).color; return (s==="Very Safe"||s==="Safe")?"#0e9f6e":s==="Solid"?"#1a56db":s==="Okay"?"#c27803":"#9b1c1c"; }
 // Theme-aware variant of safetyColor for plain text on card/row backgrounds (badges keep the raw fill above)
-function safetyTextColor(s) { if (typeof s === "number") return scoreTier(s).textColor; return (s==="Very Safe"||s==="Safe")?"var(--tier-t2)":s==="Solid"?"var(--tier-t1)":s==="Okay"?"var(--tier-t3)":"var(--tier-t4)"; }
+function safetyTextColor(s) { if (typeof s === "number") return scoreTier(s).textColor; return (s==="Very Safe"||s==="Safe")?"var(--sig-green)":s==="Solid"?"var(--sig-blue)":s==="Okay"?"var(--sig-amber)":"var(--sig-red)"; }
 function rewardColor(r) { if (typeof r === "number") return scoreTier(r).color; return r==="High"?"#0e9f6e":r==="Solid"?"#1a56db":"#c27803"; }
+// Theme-aware readable text variant of rewardColor
+function rewardTextColor(r) { if (typeof r === "number") return scoreTier(r).textColor; return r==="High"?"var(--sig-green)":r==="Solid"?"var(--sig-blue)":"var(--sig-amber)"; }
 function meterWidth(val) {
   if (typeof val === "number") return Math.max(5, Math.min(100, val*10));
   const map = {"Low":15,"Slight":35,"Medium":60,"High":90,"Very Safe":90,"Safe":72,"Solid":55,"Okay":35,"High reward":90,"Solid reward":65};
@@ -1079,11 +1083,11 @@ export default function App() {
 
   const col = s => s==="var(--text-muted)"?"var(--text-muted)":s;
 
-  const MeterBar = ({label, value, colorFn}) => (
+  const MeterBar = ({label, value, colorFn, textColorFn}) => (
     <div style={{marginBottom:5}}>
       <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
-        <span style={{fontSize:9,color:"var(--text-muted)"}}>{label}</span>
-        <span style={{fontSize:9,fontWeight:500,color:colorFn(value)}}>{scoreLabel(value)}</span>
+        <span style={{fontSize:11,color:"var(--text-secondary)"}}>{label}</span>
+        <span style={{fontSize:11,fontWeight:600,color:(textColorFn||colorFn)(value)}}>{scoreLabel(value)}</span>
       </div>
       <div style={{height:5,borderRadius:3,background:"var(--border)",overflow:"hidden"}}>
         <div style={{width:`${meterWidth(value)}%`,height:"100%",background:colorFn(value),borderRadius:3}}></div>
@@ -1593,7 +1597,7 @@ export default function App() {
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
               <div>
                 <div style={{fontWeight:500,fontSize:13}}>{selected.name}</div>
-                <div style={{fontSize:10,color:"var(--text-secondary)",marginTop:1}}>{selected.team} · {selected.pos} · Bye {selected.bye}</div>
+                <div style={{fontSize:11,color:"var(--text-secondary)",marginTop:1}}>{selected.team} · {selected.pos} · Bye {selected.bye}</div>
               </div>
               <button onClick={()=>setSelected(null)} style={{background:"none",border:"none",cursor:"pointer",color:"var(--text-muted)",fontSize:14,padding:0}}>✕</button>
             </div>
@@ -1607,7 +1611,7 @@ export default function App() {
                 ...(selected.ecrVsAdp&&selected.ecrVsAdp!=="-"?[{l:"ECR vs ADP",v:selected.ecrVsAdp,color:ecrVsAdpColor(selected.ecrVsAdp)}]:[]),
               ].map(m=>(
                 <div key={m.l} style={{background:"var(--bg-row)",borderRadius:6,padding:"7px 9px",border:`1px solid var(--border)`}}>
-                  <div style={{fontSize:8,color:"var(--text-muted)"}}>{m.l}</div>
+                  <div style={{fontSize:11,color:"var(--text-secondary)"}}>{m.l}</div>
                   <div style={{fontSize:13,fontWeight:500,marginTop:1,color:m.color||"var(--text-primary)"}}>{m.v}</div>
                 </div>
               ))}
@@ -1615,10 +1619,10 @@ export default function App() {
 
             {/* Safety Meter */}
             <div style={{background:"var(--bg-row)",borderRadius:6,padding:"10px 12px",marginBottom:8,border:`1px solid var(--border)`}}>
-              <div style={{fontSize:9,fontWeight:700,color:"var(--text-secondary)",marginBottom:8,textTransform:"uppercase",letterSpacing:"0.06em"}}>Safety meter</div>
-              <MeterBar label="Risk" value={selected.risk} colorFn={riskColor}/>
-              <MeterBar label="Reward" value={selected.reward} colorFn={rewardColor}/>
-              <MeterBar label="Safety" value={selected.safety} colorFn={safetyColor}/>
+              <div style={{fontSize:11,fontWeight:700,color:"var(--text-primary)",marginBottom:8,textTransform:"uppercase",letterSpacing:"0.06em"}}>Safety meter</div>
+              <MeterBar label="Risk" value={selected.risk} colorFn={riskColor} textColorFn={riskTextColor}/>
+              <MeterBar label="Reward" value={selected.reward} colorFn={rewardColor} textColorFn={rewardTextColor}/>
+              <MeterBar label="Safety" value={selected.safety} colorFn={safetyColor} textColorFn={safetyTextColor}/>
             </div>
 
             {(() => {
@@ -1627,13 +1631,13 @@ export default function App() {
               return (
                 <div style={{background:"var(--bg-row)",borderRadius:6,padding:"9px 11px",marginBottom:8,border:`1px solid var(--border)`}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-                    <div style={{fontSize:9,fontWeight:700,color:"var(--text-secondary)",textTransform:"uppercase",letterSpacing:"0.06em"}}>Tags & notes</div>
+                    <div style={{fontSize:11,fontWeight:700,color:"var(--text-primary)",textTransform:"uppercase",letterSpacing:"0.06em"}}>Tags & notes</div>
                     {(entry.tags.length>0||entry.notes.length>0)&&
                       <button onClick={()=>clearPlayerNotes(selected.name)} style={{fontSize:8,color:"var(--text-danger)",background:"none",border:"none",cursor:"pointer",padding:0}}>Clear all notes</button>}
                   </div>
 
                   <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:6}}>
-                    {entry.tags.length===0&&<span style={{fontSize:9,color:"var(--text-muted)"}}>No tags yet</span>}
+                    {entry.tags.length===0&&<span style={{fontSize:11,color:"var(--text-secondary)"}}>No tags yet</span>}
                     {entry.tags.map(tag=>(
                       <span key={tag} style={{display:"inline-flex",alignItems:"center",gap:3,fontSize:8,fontWeight:700,padding:"2px 6px",borderRadius:3,background:`${tagColor(tag)}26`,color:tagColor(tag),border:`1px solid ${tagColor(tag)}55`}}>
                         {tag}
@@ -1655,7 +1659,7 @@ export default function App() {
                   </div>
 
                   <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:6}}>
-                    {entry.notes.length===0&&<span style={{fontSize:9,color:"var(--text-muted)"}}>No notes yet</span>}
+                    {entry.notes.length===0&&<span style={{fontSize:11,color:"var(--text-secondary)"}}>No notes yet</span>}
                     {entry.notes.map((note,i)=>(
                       <div key={i} style={{display:"flex",alignItems:"flex-start",gap:6,fontSize:9,color:"var(--text-secondary)",background:"var(--surface-1)",borderRadius:4,padding:"4px 6px"}}>
                         <span style={{flex:1,lineHeight:1.4}}>{note}</span>
@@ -1687,7 +1691,7 @@ export default function App() {
               const ol=olineGrade(selected.team,selected.pos);
               return (
                 <div style={{background:"var(--bg-row)",borderRadius:6,padding:"9px 11px",marginBottom:8,border:`1px solid var(--border)`}}>
-                  <div style={{fontSize:8,fontWeight:600,color:"var(--text-secondary)",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>O-line ({selected.pos==="RB"?"run":"pass"} block)</div>
+                  <div style={{fontSize:11,fontWeight:700,color:"var(--text-primary)",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.06em"}}>O-line ({selected.pos==="RB"?"run":"pass"} block)</div>
                   <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
                     <span style={{fontSize:14,fontWeight:500,color:olineTextColor(ol.label)}}>{ol.score}</span>
                     <span style={{fontSize:9,color:olineTextColor(ol.label)}}>{ol.label}</span>
@@ -1703,7 +1707,7 @@ export default function App() {
               const d=effectiveDefMap[selected.team];
               return (
                 <div style={{background:"var(--surface-1)",borderRadius:"var(--radius)",padding:"8px 10px",marginBottom:8}}>
-                  <div style={{fontSize:8,fontWeight:600,color:"var(--text-secondary)",marginBottom:3,textTransform:"uppercase",letterSpacing:"0.05em"}}>Team defense</div>
+                  <div style={{fontSize:11,fontWeight:700,color:"var(--text-primary)",marginBottom:3,textTransform:"uppercase",letterSpacing:"0.06em"}}>Team defense</div>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                     <span style={{fontSize:11,fontWeight:500}}>#{d.rank} overall</span>
                     <span style={{fontSize:8,padding:"1px 4px",borderRadius:3,background:defColor(d.label),color:"#fff"}}>{d.label}</span>
@@ -1718,10 +1722,10 @@ export default function App() {
               const s=SOS[selected.team];
               return (
                 <div style={{background:"var(--surface-1)",borderRadius:"var(--radius)",padding:"8px 10px",marginBottom:10}}>
-                  <div style={{fontSize:8,fontWeight:600,color:"var(--text-secondary)",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.05em"}}>Schedule</div>
+                  <div style={{fontSize:11,fontWeight:700,color:"var(--text-primary)",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.06em"}}>Schedule</div>
                   <div style={{display:"flex",justifyContent:"space-between"}}>
-                    <div><div style={{fontSize:8,color:"var(--text-muted)"}}>Wk 1-6</div><div style={{fontSize:14,fontWeight:500,color:sosTextColor(s.e)}}>{s.e}</div></div>
-                    <div style={{textAlign:"right"}}><div style={{fontSize:8,color:"var(--text-muted)"}}>Full season</div><div style={{fontSize:14,fontWeight:500,color:sosTextColor(s.f)}}>{s.f}</div></div>
+                    <div><div style={{fontSize:11,color:"var(--text-secondary)"}}>Wk 1-6</div><div style={{fontSize:14,fontWeight:500,color:sosTextColor(s.e)}}>{s.e}</div></div>
+                    <div style={{textAlign:"right"}}><div style={{fontSize:11,color:"var(--text-secondary)"}}>Full season</div><div style={{fontSize:14,fontWeight:500,color:sosTextColor(s.f)}}>{s.f}</div></div>
                   </div>
                 </div>
               );
@@ -1734,7 +1738,7 @@ export default function App() {
                 title={rosterCount>=15?"Roster full (15/15)":assignRosterSlot(roster, selected.pos)===-1?`No slot available for ${selected.pos}`:"Add to my team"}
                 style={{flex:1,fontSize:10,padding:"7px 0",borderRadius:6,border:`2px solid var(--border-accent)`,background:"var(--bg-accent-soft)",color:"var(--text-accent)",cursor:(rosterCount>=15||assignRosterSlot(roster, selected.pos)===-1)?"not-allowed":"pointer",fontWeight:700,opacity:(rosterCount>=15||assignRosterSlot(roster, selected.pos)===-1)?0.5:1}}
               >✓ My pick</button>
-              <button onClick={()=>markDrafted(selected,false)} style={{flex:1,fontSize:10,padding:"7px 0",borderRadius:6,border:`1px solid var(--border)`,background:"transparent",color:"var(--text-muted)",cursor:"pointer"}}>✕ Drafted</button>
+              <button onClick={()=>markDrafted(selected,false)} style={{flex:1,fontSize:10,padding:"7px 0",borderRadius:6,border:`1px solid var(--border)`,background:"transparent",color:"var(--text-secondary)",cursor:"pointer"}}>✕ Drafted</button>
             </div>
           </div>
         )}
