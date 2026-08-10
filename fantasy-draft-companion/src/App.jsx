@@ -672,6 +672,89 @@ function getReason(p, roster, round, defMap = DEF) {
   return parts.slice(0,2).join(" · ") || "Solid value at ADP";
 }
 
+// Rule-based draft strategy engine — half-PPR, roster QB/RB×2/WR×3/TE/FLEX/K/DEF/BN×5.
+// `currentRound` is derived independently per league from that league's own pick count
+// (drafted.length / teams), not the shared round/pick state, so League 1 and League 2
+// each get advice matched to their own draft progress even when interleaved.
+function getStrategyRecommendations({ currentRound, picksIntoRound, teams, roster, bestAvailableByPos, scarcity, tiersByPos, runAlert }) {
+  const counts = {QB:0,RB:0,WR:0,TE:0,K:0,DEF:0};
+  roster.forEach(p => { if (p && counts[p.pos]!==undefined) counts[p.pos]++; });
+
+  const bestOf = (pos) => {
+    const p = bestAvailableByPos[pos];
+    return p ? ` ${p.name}, #${p.rank} is the best available.` : "";
+  };
+
+  const items = [];
+  const push = (icon, text) => items.push(`${icon} ${text}`);
+
+  // --- Zero-starter urgency ---
+  if (currentRound>=3 && currentRound<=5 && counts.RB===0) {
+    push("🚨", `No RB yet — prioritize RB this pick, scarcity is real.${bestOf("RB")}`);
+  }
+  if (currentRound>=3 && currentRound<=5 && counts.WR===0) {
+    push("🚨", `No WR yet — WR depth exists but you need a starter.${bestOf("WR")}`);
+  }
+  if (currentRound>=12 && counts.QB===0) {
+    push("⚠", `Draft a QB this pick — running out of rounds.${bestOf("QB")}`);
+  }
+
+  // --- Positional run momentum (already tracked via recent picks) ---
+  if (runAlert?.pos==="RB") push("🔥", "RB run happening — consider joining or you may be left behind at RB.");
+  if (runAlert?.pos==="QB") push("🔥", "QB run — decide now if you want one before they're gone.");
+  if (runAlert?.pos==="WR") push("📊", "WR run happening — plenty of WR depth, stay patient unless a value is there.");
+
+  // --- Balance rules ---
+  if (currentRound>=5 && counts.WR>=3 && counts.RB===0) {
+    push("⚖", `Heavy WR, no RB — pivot to RB now or commit to Zero-RB and target volume backs rounds 5-8.${bestOf("RB")}`);
+  }
+  if (currentRound>=5 && counts.RB>=3 && counts.WR===0) {
+    push("⚖", `Heavy RB, no WR — grab a WR starter this pick.${bestOf("WR")}`);
+  }
+
+  // --- Early elite RB tier warning (round 2, ending soon) ---
+  if (currentRound===2 && picksIntoRound>=Math.ceil(teams/2) && counts.RB===0) {
+    const n = (scarcity.RB?.[1]||0) + (scarcity.RB?.[2]||0);
+    push("⚠", `Secure an elite RB — only ${n} tier-1/2 RBs remain. Missing early RB tiers means chasing all season.${bestOf("RB")}`);
+  }
+
+  // --- Elite TE window ---
+  if (currentRound>=5 && counts.TE===0) {
+    const eliteTe = (tiersByPos.TE?.[1]||[])[0];
+    if (eliteTe) push("💎", `Elite TE available — grab now, scarce position. ${eliteTe.name}, #${eliteTe.rank} is the best available.`);
+  }
+
+  // --- Complete starting lineup (RB2, WR2, WR3) ---
+  if (currentRound>=5 && currentRound<=8 && (counts.RB<2 || counts.WR<3)) {
+    const missing=[];
+    for (let i=counts.RB+1;i<=2;i++) missing.push(`RB${i}`);
+    for (let i=counts.WR+1;i<=3;i++) missing.push(`WR${i}`);
+    push("📋", `Complete your starting lineup — ${missing.join(", ")} still needed before round 8.`);
+  }
+
+  // --- K/DEF drafted too early ---
+  if (currentRound<12 && (counts.K>0 || counts.DEF>0)) {
+    push("⚠", "K/DEF too early — these are streamable, wait until round 13+.");
+  }
+
+  // --- QB value window (rounds 9-11) ---
+  if (currentRound>=9 && currentRound<=11 && counts.QB===0) {
+    push("✅", `Good — QB window is now. Target rounds 9-12 for QB value.${bestOf("QB")}`);
+  }
+
+  // --- K/DEF territory opens up ---
+  if (currentRound>=13 && (counts.K===0 || counts.DEF===0)) {
+    push("✅", "K/DEF territory — safe to draft kicker or defense now.");
+  }
+
+  // --- Filler: best-available-over-need in the mid rounds when nothing urgent applies ---
+  if (items.length<3 && currentRound>=4 && currentRound<=8) {
+    push("📈", "No urgent need — take the best player available and stay flexible this round.");
+  }
+
+  return items.slice(0,3);
+}
+
 const LEAGUES = [{id:0,name:"League 1",teams:12},{id:1,name:"League 2",teams:10}];
 
 const LS_KEYS = {
@@ -736,7 +819,7 @@ export default function App() {
   const [selected, setSelected] = useState(null);
   const [round, setRound] = useState(() => loadLS(LS_KEYS.round, 1));
   const [pick, setPick] = useState(() => loadLS(LS_KEYS.pick, 1));
-  const [draftPosByLeague, setDraftPosByLeague] = useState(() => loadLS(LS_KEYS.draftPos, [8,1]));
+  const [draftPosByLeague, setDraftPosByLeague] = useState(() => loadLS(LS_KEYS.draftPos, [8,null]));
   const draftPos = draftPosByLeague[league];
   const setDraftPos = useCallback((val) => {
     setDraftPosByLeague(prev => { const n=[...prev]; n[league]=val; return n; });
@@ -747,7 +830,7 @@ export default function App() {
   const [campStatus, setCampStatus] = useState("idle");
   const [campResults, setCampResults] = useState([]);
   const [campLastRun, setCampLastRun] = useState(null);
-  const [recentPicks, setRecentPicks] = useState([]);
+  const [recentPicksByLeague, setRecentPicksByLeague] = useState([[], []]);
   const [theme, setTheme] = useState("dark");
   const [importInfo, setImportInfo] = useState(null);
   const [importError, setImportError] = useState(null);
@@ -806,6 +889,7 @@ export default function App() {
 
   const drafted = draftedIds[league];
   const roster = rosters[league];
+  const recentPicks = recentPicksByLeague[league];
   const rosterCount = useMemo(() => roster.filter(p => p !== null).length, [roster]);
   const teams = LEAGUES[league].teams;
 
@@ -820,7 +904,7 @@ export default function App() {
   const sorted = useMemo(() => [...filtered].sort((a,b)=>a.rank-b.rank), [filtered]);
 
   // The user's full snake-draft pick sequence for their slot, and which of those are still ahead.
-  const myPicks = useMemo(() => computeSnakePicks(draftPos, teams, 15), [draftPos, teams]);
+  const myPicks = useMemo(() => draftPos==null ? [] : computeSnakePicks(draftPos, teams, 15), [draftPos, teams]);
   const currentOverallPick = drafted.length;
   const upcomingMyPicks = useMemo(() => (
     myPicks.filter(p => p > currentOverallPick).slice(0, 4).map((p, idx) => ({
@@ -850,6 +934,7 @@ export default function App() {
   const recs = useMemo(() => getRecs(available, roster, round, effectiveDefMap), [available, roster, round, effectiveDefMap]);
 
   const isMyTurn = useMemo(() => {
+    if (draftPos==null) return false;
     const inRound = ((pick-1)%teams)+1;
     const snake = round%2===0 ? teams-draftPos+1 : draftPos;
     return inRound===snake;
@@ -904,6 +989,7 @@ export default function App() {
   // How many total picks (across all teams) happen between now and my next turn — snake draft always
   // gives me exactly one pick per round, so my next turn is always in round+1.
   const picksUntilNextTurn = useMemo(() => {
+    if (draftPos==null) return null;
     const nextRound = round+1;
     const nextSlot = nextRound%2===0 ? teams-draftPos+1 : draftPos;
     const nextPickNum = (nextRound-1)*teams+nextSlot;
@@ -917,7 +1003,7 @@ export default function App() {
   // tier (e.g. only 2 top TEs) would falsely trigger at pick 1 even though nothing has been drafted yet.
   const cliffAlerts = useMemo(() => {
     const alerts=[];
-    if (recentPicks.length<3) return alerts;
+    if (recentPicks.length<3 || picksUntilNextTurn==null) return alerts;
     const posCounts={};
     recentPicks.forEach(p=>{posCounts[p]=(posCounts[p]||0)+1;});
     ["QB","RB","WR","TE"].forEach(pos=>{
@@ -973,6 +1059,61 @@ export default function App() {
     return m;
   }, [available]);
 
+  // Round derived from this league's own total picks made (not the shared round/pick state),
+  // so the strategy engine below tracks League 1 and League 2 independently.
+  const currentRound = useMemo(() => Math.floor(drafted.length / teams) + 1, [drafted.length, teams]);
+  const picksIntoRound = useMemo(() => drafted.length % teams, [drafted.length, teams]);
+
+  const strategyRecs = useMemo(() => getStrategyRecommendations({
+    currentRound, picksIntoRound, teams, roster, bestAvailableByPos, scarcity, tiersByPos, runAlert,
+  }), [currentRound, picksIntoRound, teams, roster, bestAvailableByPos, scarcity, tiersByPos, runAlert]);
+
+  const [strategyOpen, setStrategyOpen] = useState(true);
+  const [coachAdvice, setCoachAdvice] = useState(null);
+  const [coachStatus, setCoachStatus] = useState("idle");
+
+  const askCoach = useCallback(async () => {
+    setCoachStatus("loading");
+    setCoachAdvice(null);
+    try {
+      const topAvailable = [...available].sort((a,b)=>a.rank-b.rank).slice(0,10)
+        .map(p=>({name:p.name, pos:p.pos, rank:p.rank}));
+      const rosterSoFar = roster.filter(Boolean).map(p=>({name:p.name, pos:p.pos}));
+      const recentOtherTeams = drafted.slice(-12)
+        .map(id=>players.find(pl=>pl.id===id)).filter(Boolean)
+        .filter(p=>!roster.some(r=>r&&r.id===p.id))
+        .slice(-6).map(p=>`${p.name} (${p.pos})`);
+      const positionsNeeded = ROSTER_SLOTS.reduce((acc,slot,i)=>{
+        if (slot!=="BN" && !roster[i] && !acc.includes(slot)) acc.push(slot);
+        return acc;
+      }, []);
+      const res = await fetch(`${SERVER}/api/draft-coach`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          teams,
+          round: currentRound,
+          pickSlot: draftPos ?? null,
+          roster: rosterSoFar,
+          topAvailable,
+          recentPicks: recentOtherTeams,
+          positionsNeeded,
+        }),
+      });
+      if (!res.ok) throw new Error(`Server responded ${res.status}`);
+      const data = await res.json();
+      setCoachAdvice(data.advice || "No advice returned.");
+      setCoachStatus("idle");
+    } catch (err) {
+      console.error("Ask coach error:", err);
+      setCoachAdvice("Couldn't reach the draft coach — try again.");
+      setCoachStatus("error");
+    }
+  }, [available, roster, drafted, players, teams, currentRound, draftPos]);
+
+  // Coach advice is a snapshot of one league's state — clear it when switching leagues.
+  useEffect(() => { setCoachAdvice(null); setCoachStatus("idle"); }, [league]);
+
   const markDrafted = useCallback((player, isMine) => {
     if (isMine) {
       const currentCount = roster.filter(p => p !== null).length;
@@ -991,7 +1132,7 @@ export default function App() {
       n[league]=teamRoster;
       return n;
     });
-    setRecentPicks(prev=>[...prev.slice(-9), player.pos]);
+    setRecentPicksByLeague(prev=>{const n=[...prev];n[league]=[...n[league].slice(-9), player.pos];return n;});
     const inRound=((pick-1)%teams)+1;
     if(inRound===teams) setRound(r=>r+1);
     setPick(p=>p+1);
@@ -1022,7 +1163,7 @@ export default function App() {
       setRound(Math.floor((newPick-1)/teams)+1);
       return newPick;
     });
-    setRecentPicks(prev=>prev.slice(0,-1));
+    setRecentPicksByLeague(prev=>{const n=[...prev];n[league]=n[league].slice(0,-1);return n;});
   };
 
   // Clears drafted/roster/pick progress but keeps the current (possibly imported) player pool.
@@ -1032,7 +1173,7 @@ export default function App() {
     setRosters([Array(15).fill(null), Array(15).fill(null)]);
     setPick(1);
     setRound(1);
-    setRecentPicks([]);
+    setRecentPicksByLeague([[], []]);
     setSelected(null);
   };
 
@@ -1044,9 +1185,9 @@ export default function App() {
     setRosters([Array(15).fill(null), Array(15).fill(null)]);
     setPick(1);
     setRound(1);
-    setDraftPosByLeague([1, 1]);
+    setDraftPosByLeague([8, null]);
     setLeague(0);
-    setRecentPicks([]);
+    setRecentPicksByLeague([[], []]);
     setSelected(null);
     setCampResults([]);
     setCampStatus("idle");
@@ -1070,7 +1211,7 @@ export default function App() {
       setRosters([Array(15).fill(null), Array(15).fill(null)]);
       setPick(1);
       setRound(1);
-      setRecentPicks([]);
+      setRecentPicksByLeague([[], []]);
       setSelected(null);
       setCampResults([]);
       setCampStatus("idle");
@@ -1438,7 +1579,13 @@ export default function App() {
           {isMyTurn&&<span style={{fontSize:10,padding:"3px 8px",borderRadius:"var(--radius)",background:"var(--bg-success)",color:"var(--text-success)",fontWeight:500}}>Your pick</span>}
           <span style={{fontSize:10,color:"var(--text-secondary)"}}>R{round} P{pick}</span>
           <span style={{fontSize:11,color:"var(--text-secondary)"}}>Slot</span>
-          <input type="number" min={1} max={teams} value={draftPos} onChange={e=>setDraftPos(Number(e.target.value))} title="Your draft slot (1-based position in the draft order)" style={{width:36,fontSize:10,textAlign:"center"}}/>
+          <input
+            type="number" min={1} max={teams} value={draftPos ?? ""} placeholder="?"
+            onChange={e=>{const v=e.target.value; setDraftPos(v===""?null:Number(v));}}
+            title={`Your draft slot for ${LEAGUES[league].name} (1-based position in the draft order) — leave blank if unknown`}
+            style={{width:36,fontSize:10,textAlign:"center"}}
+          />
+          {draftPos==null&&<span style={{fontSize:9,color:"var(--text-muted)",fontStyle:"italic"}}>slot unknown — pick markers off</span>}
           {nextPick&&(
             <span style={{fontSize:10,fontWeight:700,padding:"3px 8px",borderRadius:"var(--radius)",background:"rgba(210,153,34,0.16)",color:"var(--text-warning)"}}>
               {nextPick.picksAway===0?"You're on the clock":`${nextPick.picksAway} pick${nextPick.picksAway===1?"":"s"} until your turn`}
@@ -1593,6 +1740,38 @@ export default function App() {
                     </div>
                   );
                 })}
+              </div>
+
+              {/* Strategy strip */}
+              <div style={{marginBottom:8,background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:8,overflow:"hidden"}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",cursor:"pointer"}} onClick={()=>setStrategyOpen(v=>!v)}>
+                  <span style={{fontSize:10,fontWeight:700,color:"var(--text-secondary)",textTransform:"uppercase",letterSpacing:"0.05em",flex:1}}>
+                    {strategyOpen?"▾":"▸"} Strategy{strategyRecs.length>0?` (${strategyRecs.length})`:""}
+                  </span>
+                  <button
+                    onClick={e=>{e.stopPropagation();askCoach();}}
+                    disabled={coachStatus==="loading"}
+                    title="Sends the current draft state to the AI coach for advice — costs one API call"
+                    style={{fontSize:10,fontWeight:600,padding:"4px 10px",borderRadius:6,border:"1px solid var(--border-rec-card)",background:"var(--bg-rec-card)",color:"var(--text-accent)",cursor:coachStatus==="loading"?"wait":"pointer",opacity:coachStatus==="loading"?0.7:1}}
+                  >
+                    {coachStatus==="loading"?"🤖 Thinking…":"🤖 Ask Coach"}
+                  </button>
+                </div>
+                {strategyOpen&&(
+                  <div style={{padding:"0 10px 10px",display:"flex",flexDirection:"column",gap:6}}>
+                    {strategyRecs.length===0 ? (
+                      <div style={{fontSize:11,color:"var(--text-muted)",fontStyle:"italic"}}>No specific recommendations right now.</div>
+                    ) : strategyRecs.map((text,i)=>(
+                      <div key={i} style={{fontSize:12,color:"var(--text-primary)",lineHeight:1.4,padding:"6px 8px",background:"var(--bg-row)",borderRadius:6,borderLeft:"3px solid var(--border-accent)"}}>{text}</div>
+                    ))}
+                    {coachAdvice&&(
+                      <div style={{fontSize:12,color:"var(--text-primary)",lineHeight:1.5,padding:"8px 10px",background:"var(--bg-rec-card)",border:"1px solid var(--border-rec-card)",borderRadius:6}}>
+                        <div style={{fontSize:9,fontWeight:700,color:"var(--text-accent)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>Coach says</div>
+                        {coachAdvice}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Tier cliff warning */}

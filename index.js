@@ -83,6 +83,44 @@ app.post("/api/analyze-camp", async (req, res) => {
   }
 });
 
+// ─── Draft coach (Anthropic proxy) ────────────────────────────────────────────
+app.post("/api/draft-coach", async (req, res) => {
+  try {
+    const { teams, round, pickSlot, roster, topAvailable, recentPicks, positionsNeeded } = req.body;
+    const system = `You are an expert fantasy football draft coach for a ${teams}-team half-PPR snake draft with 4pt passing TDs. Roster: QB, RB×2, WR×3, TE, FLEX, K, DEF, 5 bench. Analyze the current draft state and give 2-3 sentences of specific, actionable advice for the manager's next pick. Be direct and opinionated. Reference specific available players by name.`;
+    const userMessage = [
+      `Current round: ${round}`,
+      `My draft slot: ${pickSlot ?? "unknown"}`,
+      `My roster so far: ${(roster || []).length ? roster.map(p => `${p.name} (${p.pos})`).join(", ") : "empty"}`,
+      `Top 10 available players by rank: ${(topAvailable || []).map(p => `${p.name} (${p.pos}, #${p.rank})`).join(", ")}`,
+      `Recent picks by other teams (last 6): ${(recentPicks || []).length ? recentPicks.join(", ") : "none yet"}`,
+      `Positions still needed: ${(positionsNeeded || []).length ? positionsNeeded.join(", ") : "none — roster complete"}`,
+    ].join("\n");
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": process.env.ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 300,
+        system,
+        messages: [{ role: "user", content: userMessage }],
+      }),
+    });
+    if (!response.ok) throw new Error(`Anthropic API responded with ${response.status}`);
+    const data = await response.json();
+    const advice = data.content?.find(b => b.type === "text")?.text?.trim() || "No advice available.";
+    res.json({ advice });
+  } catch (err) {
+    console.error("Draft coach error:", err.message);
+    res.status(500).json({ error: "Failed to get draft coach advice" });
+  }
+});
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function cleanText(str) {
   if (!str) return "";
