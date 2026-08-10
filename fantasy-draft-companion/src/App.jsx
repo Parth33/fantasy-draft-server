@@ -46,6 +46,19 @@ const THEMES = {
     "--tier-t2": "#0e9f6e",
     "--tier-t3": "#c27803",
     "--tier-t4": "#9b1c1c",
+    "--bg-needed": "#2e1f0a",
+    "--border-needed": "#d29922",
+    "--shadow-needed": "0 0 8px rgba(210,153,34,0.5)",
+    "--text-needed": "#d29922",
+    "--bg-rec-card": "#1a2e4a",
+    "--border-rec-card": "#1f6feb",
+    "--bg-row-rec-highlight": "#1e3a5f",
+    "--border-row-rec-highlight": "#60a5fa",
+    "--text-pick-line": "#d29922",
+    "--bg-run-banner-start": "#7f1d1d",
+    "--bg-run-banner-end": "#c2410c",
+    "--border-run-banner": "#fb923c",
+    "--text-run-banner": "#ffffff",
   },
   light: {
     "--bg-app": "#f0f4f8",
@@ -90,6 +103,19 @@ const THEMES = {
     "--tier-t2": "#047857",
     "--tier-t3": "#b45309",
     "--tier-t4": "#9b1c1c",
+    "--bg-needed": "#fffbeb",
+    "--border-needed": "#d97706",
+    "--shadow-needed": "none",
+    "--text-needed": "#92400e",
+    "--bg-rec-card": "#eff6ff",
+    "--border-rec-card": "#2563eb",
+    "--bg-row-rec-highlight": "#dbeafe",
+    "--border-row-rec-highlight": "#2563eb",
+    "--text-pick-line": "#b45309",
+    "--bg-run-banner-start": "#fee2e2",
+    "--bg-run-banner-end": "#ffedd5",
+    "--border-run-banner": "#f97316",
+    "--text-run-banner": "#9a3412",
   },
 };
 
@@ -686,7 +712,7 @@ function computeSnakePicks(slot, teamsCount, rounds = 15) {
 // thinner blue dashed line so the list stays readable further down.
 function PickMarkerRow({ marker }) {
   const { pickNum, picksAway, isNext } = marker;
-  const color = isNext ? "var(--text-warning)" : "var(--text-accent)";
+  const color = isNext ? "var(--text-pick-line)" : "var(--text-accent)";
   return (
     <div style={{display:"flex",alignItems:"center",gap:8,padding:isNext?"7px 12px":"4px 12px",background:isNext?"rgba(210,153,34,0.16)":"transparent"}}>
       <div style={{flex:1,height:isNext?2:1,background:color,opacity:isNext?1:0.55,borderRadius:1}}/>
@@ -1236,7 +1262,7 @@ export default function App() {
       setFlash(isMine ? "blue" : "green");
       setTimeout(() => markDrafted(p, isMine), 300);
     };
-    const rowBg = flash==="green" ? "#22c55e4d" : flash==="blue" ? "#3b82f64d" : (isSel?"var(--bg-row-sel)":isRec?"#1e3a5f":zebra);
+    const rowBg = flash==="green" ? "#22c55e4d" : flash==="blue" ? "#3b82f64d" : (isSel?"var(--bg-row-sel)":isRec?"var(--bg-row-rec-highlight)":zebra);
     return (
       <div
         onClick={()=>{
@@ -1245,7 +1271,7 @@ export default function App() {
           setSelected(p);
         }}
         className="player-row"
-        style={{background:rowBg,boxShadow:isSel?"inset 0 0 0 1px var(--border-accent)":"none",borderBottom:"1px solid var(--border)",borderLeft:isRec?"3px solid #60a5fa":`4px solid ${POS_COLORS[p.pos]||"#555"}`,cursor:"pointer",transition:"background 0.15s, filter 0.1s",opacity:isDrafted?0.45:1}}>
+        style={{background:rowBg,boxShadow:isSel?"inset 0 0 0 1px var(--border-accent)":"none",borderBottom:"1px solid var(--border)",borderLeft:isRec?"3px solid var(--border-row-rec-highlight)":`4px solid ${POS_COLORS[p.pos]||"#555"}`,cursor:"pointer",transition:"background 0.15s, filter 0.1s",opacity:isDrafted?0.45:1}}>
         <div style={{display:"grid",gridTemplateColumns:compact?ROW_COLS_COMPACT:ROW_COLS,gap:compact?3:8,alignItems:"center",padding:compact?"6px 6px":"8px 12px",fontSize:compact?11:12}}>
           <span style={{color:"var(--text-secondary)",fontWeight:700,textAlign:"right"}}>{p.rank}</span>
           <span
@@ -1356,7 +1382,7 @@ export default function App() {
         }}
         title={`${p.name} (${p.team})`}
         className="player-row"
-        style={{display:"flex",alignItems:"baseline",gap:3,padding:"2px 5px",cursor:"pointer",minWidth:0,background:flash==="green"?"#22c55e4d":(isRec?"#1a2a4a":zebra),borderLeft:isRec?"3px solid #3b82f6":"3px solid transparent",opacity:isDrafted?0.45:1,transition:"background 0.15s"}}>
+        style={{display:"flex",alignItems:"baseline",gap:3,padding:"2px 5px",cursor:"pointer",minWidth:0,background:flash==="green"?"#22c55e4d":(isRec?"var(--bg-row-rec-highlight)":zebra),borderLeft:isRec?"3px solid var(--border-row-rec-highlight)":"3px solid transparent",opacity:isDrafted?0.45:1,transition:"background 0.15s"}}>
         <span style={{fontSize:9,fontWeight:700,color:"var(--text-secondary)",minWidth:32,flexShrink:0,textAlign:"right"}}>{p.rank}</span>
         <span style={{fontSize:9,fontWeight:600,color:"var(--text-primary)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1,minWidth:0,textDecoration:isDrafted?"line-through":"none"}}>{p.name}</span>
         <span style={{fontSize:8,fontWeight:600,color:"var(--text-secondary)",flexShrink:0}}>{p.team}</span>
@@ -1378,6 +1404,11 @@ export default function App() {
           --tab-active-border: #58a6ff;
           --pos-qb: #7c3aed; --pos-rb: #0369a1; --pos-wr: #0f766e; --pos-te: #f59e0b; --pos-k: #4b5563; --pos-def: #374151;
           --sig-green: #34d399; --sig-blue: #60a5fa; --sig-amber: #fbbf24; --sig-orange: #fb923c; --sig-red: #f87171;
+          --bg-needed: #2e1f0a; --border-needed: #d29922; --shadow-needed: 0 0 8px rgba(210,153,34,0.5); --text-needed: #d29922;
+          --bg-rec-card: #1a2e4a; --border-rec-card: #1f6feb;
+          --bg-row-rec-highlight: #1e3a5f; --border-row-rec-highlight: #60a5fa;
+          --text-pick-line: #d29922;
+          --bg-run-banner-start: #7f1d1d; --bg-run-banner-end: #c2410c; --border-run-banner: #fb923c; --text-run-banner: #ffffff;
         }
         * { box-sizing: border-box; }
         input, textarea, button { font-family: inherit; }
@@ -1540,9 +1571,9 @@ export default function App() {
             <>
               {/* Run detection banner — loud, hard to miss */}
               {runAlert&&(
-                <div className="run-banner" style={{marginBottom:8,background:"linear-gradient(90deg,#7f1d1d,#c2410c)",border:"2px solid #fb923c",borderRadius:8,padding:"10px 14px",display:"flex",alignItems:"center",gap:10}}>
+                <div className="run-banner" style={{marginBottom:8,background:"linear-gradient(90deg,var(--bg-run-banner-start),var(--bg-run-banner-end))",border:"2px solid var(--border-run-banner)",borderRadius:8,padding:"10px 14px",display:"flex",alignItems:"center",gap:10}}>
                   <span style={{fontSize:20,lineHeight:1}}>🔥</span>
-                  <span style={{fontSize:13,fontWeight:800,color:"#fff",letterSpacing:"0.02em"}}>
+                  <span style={{fontSize:13,fontWeight:800,color:"var(--text-run-banner)",letterSpacing:"0.02em"}}>
                     {runAlert.pos} RUN — {runAlert.count} taken in last 6 picks
                   </span>
                 </div>
@@ -1588,11 +1619,11 @@ export default function App() {
               {/* Recs bar + inline roster panel */}
               <div style={{marginBottom:8,display:"flex",gap:8,alignItems:"stretch"}}>
                 {available.length>0&&rosterCount<15&&recs.length>0&&(
-                  <div style={{background:"var(--bg-accent-soft)",border:`1px solid var(--border-accent)`,borderRadius:8,padding:"10px 14px",width:"fit-content",flexShrink:0,lineHeight:1.3,display:"flex",flexDirection:"column"}}>
+                  <div style={{background:"var(--bg-rec-card)",border:`1px solid var(--border-rec-card)`,borderRadius:8,padding:"10px 14px",width:"fit-content",flexShrink:0,lineHeight:1.3,display:"flex",flexDirection:"column"}}>
                     <div style={{fontSize:10,fontWeight:600,color:"var(--text-accent)",marginBottom:8,textTransform:"uppercase",letterSpacing:"0.05em"}}>Your pick — top recommendations</div>
                     <div style={{display:"flex",gap:8,flexWrap:"nowrap",flex:1,alignItems:"stretch"}}>
                       {recs.map((p,i)=>(
-                        <div key={p.id} onClick={()=>setSelected(p)} style={{background:"var(--bg-card)",borderRadius:8,padding:"12px 14px",cursor:"pointer",border:`1px solid var(--border-accent)`,borderLeft:`4px solid ${POS_COLORS[p.pos]||"#555"}`,width:250,flexShrink:0,display:"flex",flexDirection:"column",gap:8}}>
+                        <div key={p.id} onClick={()=>setSelected(p)} style={{background:"var(--bg-card)",borderRadius:8,padding:"12px 14px",cursor:"pointer",border:`1px solid var(--border-rec-card)`,borderLeft:`4px solid ${POS_COLORS[p.pos]||"#555"}`,width:250,flexShrink:0,display:"flex",flexDirection:"column",gap:8}}>
                           <div style={{display:"flex",alignItems:"center",gap:6}}>
                             <span style={{fontSize:10,color:"var(--text-muted)",fontWeight:700}}>#{i+1}</span>
                             <span style={{fontSize:15,fontWeight:800,color:"var(--text-primary)",lineHeight:1.25}}>{p.name}</span>
@@ -1622,13 +1653,13 @@ export default function App() {
                         return (
                           <div key={i} style={{
                             display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,minWidth:0,borderRadius:6,padding:"8px 3px",
-                            background:needsFill?"var(--bg-warn)":"var(--bg-row)",
-                            border:needsFill?"2px solid var(--text-warning)":"1px solid var(--border)",
-                            boxShadow:needsFill?"0 0 8px rgba(210,153,34,0.5)":"none",
+                            background:needsFill?"var(--bg-needed)":"var(--bg-row)",
+                            border:needsFill?"2px solid var(--border-needed)":"1px solid var(--border)",
+                            boxShadow:needsFill?"var(--shadow-needed)":"none",
                             opacity:(!isBench&&p)?0.55:1,
                           }}>
-                            <span style={{fontSize:14,fontWeight:700,color:needsFill?"var(--text-warning)":(POS_COLORS[slot]||"var(--text-muted)"),letterSpacing:"0.01em"}}>{slot}</span>
-                            <span style={{fontSize:11,fontWeight:600,color:p?"var(--text-primary)":(needsFill?"var(--text-warning)":"var(--text-muted)"),textAlign:"center",lineHeight:1.15,overflowWrap:"break-word",wordBreak:"normal",hyphens:"auto",maxWidth:"100%"}}>{displayName||(needsFill?"Needed":"—")}</span>
+                            <span style={{fontSize:14,fontWeight:700,color:needsFill?"var(--text-needed)":(POS_COLORS[slot]||"var(--text-muted)"),letterSpacing:"0.01em"}}>{slot}</span>
+                            <span style={{fontSize:11,fontWeight:600,color:p?"var(--text-primary)":(needsFill?"var(--text-needed)":"var(--text-muted)"),textAlign:"center",lineHeight:1.15,overflowWrap:"break-word",wordBreak:"normal",hyphens:"auto",maxWidth:"100%"}}>{displayName||(needsFill?"Needed":"—")}</span>
                           </div>
                         );
                       })}
@@ -1731,12 +1762,12 @@ export default function App() {
                 return (
                   <div key={i} style={{
                     display:"flex",alignItems:"center",gap:8,padding:"7px 10px",marginBottom:3,borderRadius:6,
-                    background:needsFill?"var(--bg-warn)":"var(--bg-card)",
-                    border:needsFill?"2px solid var(--text-warning)":"1px solid var(--border)",
-                    boxShadow:needsFill?"0 0 8px rgba(210,153,34,0.45)":"none",
+                    background:needsFill?"var(--bg-needed)":"var(--bg-card)",
+                    border:needsFill?"2px solid var(--border-needed)":"1px solid var(--border)",
+                    boxShadow:needsFill?"var(--shadow-needed)":"none",
                     opacity:(!isBench&&p)?0.6:1,
                   }}>
-                    <span style={{fontSize:9,fontWeight:needsFill?800:500,color:needsFill?"var(--text-warning)":"var(--text-muted)",width:36}}>{slot}</span>
+                    <span style={{fontSize:9,fontWeight:needsFill?800:500,color:needsFill?"var(--text-needed)":"var(--text-muted)",width:36}}>{slot}</span>
                     {p?<>
                       <span style={{fontWeight:500,fontSize:11,flex:1}}>{p.name}</span>
                       <span style={{fontSize:9,color:"var(--text-secondary)"}}>{p.team}</span>
@@ -1744,7 +1775,7 @@ export default function App() {
                       <span style={{fontSize:9,color:safetyTextColor(p.safety)}}>{scoreLabel(p.safety)}</span>
                       <span style={{fontSize:9,color:"var(--text-muted)"}}>Bye {p.bye}</span>
                       {SOS[p.team]&&<span style={{fontSize:8,color:sosTextColor(SOS[p.team].e)}}>SOS {SOS[p.team].e}</span>}
-                    </>:<span style={{fontSize:10,color:needsFill?"var(--text-warning)":"var(--text-muted)",fontStyle:"italic",fontWeight:needsFill?700:400}}>{needsFill?"Needed":"Empty"}</span>}
+                    </>:<span style={{fontSize:10,color:needsFill?"var(--text-needed)":"var(--text-muted)",fontStyle:"italic",fontWeight:needsFill?700:400}}>{needsFill?"Needed":"Empty"}</span>}
                   </div>
                 );
               })}
@@ -1776,7 +1807,7 @@ export default function App() {
                       <span style={{fontSize:8,padding:"1px 4px",borderRadius:3,background:defColor(d.label),color:"#fff"}}>{d.label}</span>
                     </div>
                     {d.ppg!=null&&<div style={{fontSize:9,color:"var(--text-secondary)"}}>{d.ppg} ppg allowed</div>}
-                    {d.shootout&&<div style={{fontSize:8,color:"#c27803",marginTop:2}}>Shootout likely</div>}
+                    {d.shootout&&<div style={{fontSize:8,color:"var(--sig-amber)",marginTop:2}}>Shootout likely</div>}
                   </div>
                 ))}
               </div>
@@ -1947,7 +1978,7 @@ export default function App() {
                     <span style={{fontSize:8,padding:"1px 4px",borderRadius:3,background:defColor(d.label),color:"#fff"}}>{d.label}</span>
                   </div>
                   {d.ppg!=null&&<div style={{fontSize:9,color:"var(--text-secondary)",marginTop:2}}>{d.ppg} ppg allowed</div>}
-                  {d.shootout&&<div style={{fontSize:9,color:"#c27803",marginTop:2}}>Weak D = more offensive volume</div>}
+                  {d.shootout&&<div style={{fontSize:9,color:"var(--sig-amber)",marginTop:2}}>Weak D = more offensive volume</div>}
                 </div>
               );
             })()}
