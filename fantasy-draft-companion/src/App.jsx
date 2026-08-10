@@ -331,6 +331,13 @@ function formatRosterName(fullName) {
   return `${parts[0][0].toUpperCase()}. ${parts[parts.length-1]}`;
 }
 
+// 1 -> "1st", 3 -> "3rd", 11 -> "11th"
+function ordinal(n) {
+  const suffixes = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return `${n}${suffixes[(v - 20) % 10] || suffixes[v] || suffixes[0]}`;
+}
+
 function olineGrade(team, pos) {
   const g = OLINE[team]; if (!g) return {score:70,label:"Average"};
   return pos === "RB" ? {score:g.run,label:g.label} : {score:g.pass,label:g.label};
@@ -918,18 +925,27 @@ export default function App() {
     return s;
   }, [tiersByPos]);
 
-  // Bye week tracking on my roster — per-position counts drive the "BYE CONFLICT" flag, overall counts drive the stack summary.
-  const byeCountsByPos = useMemo(() => {
+  // Bye week tracking on my roster (any position) — drives both the per-player clustering
+  // warning ("3rd player on Bye 7") and the overall stack summary shown on the roster panels.
+  const rosterByeCounts = useMemo(() => {
     const m={};
-    roster.forEach(p=>{ if(!p) return; const k=`${p.pos}-${p.bye}`; m[k]=(m[k]||0)+1; });
+    roster.forEach(p=>{ if(!p) return; m[p.bye]=(m[p.bye]||0)+1; });
     return m;
   }, [roster]);
 
-  const byeStackSummary = useMemo(() => {
+  const byeStackSummary = useMemo(() => (
+    Object.entries(rosterByeCounts).filter(([wk,c])=>c>=2).sort((a,b)=>b[1]-a[1]).map(([wk,c])=>`Wk${wk} x${c}`)
+  ), [rosterByeCounts]);
+
+  // Best remaining player at each position — feeds the always-visible "Best available" strip.
+  const bestAvailableByPos = useMemo(() => {
     const m={};
-    roster.forEach(p=>{ if(!p) return; m[p.bye]=(m[p.bye]||0)+1; });
-    return Object.entries(m).filter(([wk,c])=>c>=2).sort((a,b)=>b[1]-a[1]).map(([wk,c])=>`Wk${wk} x${c}`);
-  }, [roster]);
+    ["QB","RB","WR","TE","K","DEF"].forEach(pos=>{
+      const list = available.filter(p=>p.pos===pos);
+      if (list.length) m[pos] = list.reduce((best,p)=>p.rank<best.rank?p:best);
+    });
+    return m;
+  }, [available]);
 
   const markDrafted = useCallback((player, isMine) => {
     if (isMine) {
@@ -1181,10 +1197,10 @@ export default function App() {
     const isSel = selected?.id===p.id;
     const zebra = index%2===1 ? "var(--bg-row-alt)" : "var(--bg-row)";
     const isLastInTier = lastInTierIds.has(p.id);
-    const byeConflictCount = byeCountsByPos[`${p.pos}-${p.bye}`] || 0;
-    const hasByeConflict = byeConflictCount >= 2;
-    const showBadgeRow = isLastInTier || hasByeConflict;
     const isDrafted = drafted.includes(p.id);
+    const rosterByeCount = rosterByeCounts[p.bye] || 0;
+    const hasByeConflict = !isDrafted && rosterByeCount >= 2;
+    const showBadgeRow = isLastInTier || hasByeConflict;
     const rosterFull = rosterCount >= 15;
     const noSlot = !rosterFull && assignRosterSlot(roster, p.pos) === -1;
     const mineBlocked = rosterFull || noSlot;
@@ -1291,7 +1307,7 @@ export default function App() {
         {showBadgeRow&&(
           <div style={{display:"flex",gap:6,flexWrap:"wrap",padding:compact?"0 6px 5px 6px":"0 12px 6px 12px"}}>
             {isLastInTier&&<span style={{fontSize:8,fontWeight:800,padding:"2px 5px",borderRadius:3,background:"var(--bg-warn)",color:"var(--text-warning)",border:"1px solid var(--text-warning)",letterSpacing:"0.03em"}}>LAST IN TIER</span>}
-            {hasByeConflict&&<span style={{fontSize:8,fontWeight:800,padding:"2px 5px",borderRadius:3,background:"var(--bg-warn)",color:"var(--text-warning)",border:"1px solid var(--text-warning)",letterSpacing:"0.03em"}}>BYE CONFLICT (Wk {p.bye})</span>}
+            {hasByeConflict&&<span style={{fontSize:8,fontWeight:800,padding:"2px 5px",borderRadius:3,background:"var(--bg-warn)",color:"var(--text-warning)",border:"1px solid var(--text-warning)",letterSpacing:"0.03em"}}>⚠ {ordinal(rosterByeCount+1)} player on Bye {p.bye}</span>}
           </div>
         )}
       </div>
@@ -1354,6 +1370,8 @@ export default function App() {
         ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
         .player-row:hover { filter: brightness(1.15); }
+        @keyframes runPulse { 0%,100% { box-shadow: 0 0 6px rgba(251,146,60,0.4); } 50% { box-shadow: 0 0 18px rgba(251,146,60,0.85); } }
+        .run-banner { animation: runPulse 1.4s ease-in-out infinite; }
       `}</style>
       {slotMsg&&(
         <div style={{position:"fixed",top:12,left:"50%",transform:"translateX(-50%)",zIndex:1000,fontSize:11,fontWeight:600,padding:"8px 16px",borderRadius:"var(--radius)",background:"var(--bg-danger)",color:"var(--text-danger)",border:`1px solid var(--text-danger)`,boxShadow:"0 2px 8px rgba(0,0,0,0.3)"}}>
@@ -1503,6 +1521,32 @@ export default function App() {
 
           {activeTab==="board"&&(
             <>
+              {/* Run detection banner — loud, hard to miss */}
+              {runAlert&&(
+                <div className="run-banner" style={{marginBottom:8,background:"linear-gradient(90deg,#7f1d1d,#c2410c)",border:"2px solid #fb923c",borderRadius:8,padding:"10px 14px",display:"flex",alignItems:"center",gap:10}}>
+                  <span style={{fontSize:20,lineHeight:1}}>🔥</span>
+                  <span style={{fontSize:13,fontWeight:800,color:"#fff",letterSpacing:"0.02em"}}>
+                    {runAlert.pos} RUN — {runAlert.count} taken in last 6 picks
+                  </span>
+                </div>
+              )}
+
+              {/* Best available strip */}
+              <div style={{marginBottom:8,display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:8,padding:"8px 10px"}}>
+                <span style={{fontSize:10,fontWeight:700,color:"var(--text-secondary)",textTransform:"uppercase",letterSpacing:"0.05em",marginRight:2}}>Best available</span>
+                {["QB","RB","WR","TE","K","DEF"].map(pos=>{
+                  const p = bestAvailableByPos[pos];
+                  if (!p) return null;
+                  return (
+                    <div key={pos} onClick={()=>setSelected(p)} style={{display:"flex",alignItems:"center",gap:5,background:"var(--bg-row)",border:"1px solid var(--border)",borderRadius:6,padding:"4px 8px",cursor:"pointer"}}>
+                      <span style={{fontSize:9,fontWeight:800,padding:"2px 5px",borderRadius:4,background:POS_COLORS[pos]||"#555",color:"#fff",letterSpacing:"0.03em"}}>{pos}</span>
+                      <span style={{fontSize:11,fontWeight:600,color:"var(--text-primary)",whiteSpace:"nowrap"}}>{p.name}</span>
+                      <span style={{fontSize:10,fontWeight:700,color:"var(--text-secondary)"}}>#{p.rank}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
               {/* Tier cliff warning */}
               {isMyTurn&&cliffAlerts.length>0&&(
                 <div style={{marginBottom:8,display:"flex",flexDirection:"column",gap:6}}>
@@ -1556,10 +1600,18 @@ export default function App() {
                       {idxRow.map(i=>{
                         const slot=ROSTER_SLOTS[i],p=roster[i];
                         const displayName = p ? (p.pos==="DEF" ? p.team : formatRosterName(p.name)) : null;
+                        const isBench = slot==="BN";
+                        const needsFill = !isBench && !p;
                         return (
-                          <div key={i} style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,minWidth:0,background:"var(--bg-row)",border:`1px solid var(--border)`,borderRadius:6,padding:"8px 3px"}}>
-                            <span style={{fontSize:14,fontWeight:700,color:POS_COLORS[slot]||"var(--text-muted)",letterSpacing:"0.01em"}}>{slot}</span>
-                            <span style={{fontSize:11,fontWeight:600,color:p?"var(--text-primary)":"var(--text-muted)",textAlign:"center",lineHeight:1.15,overflowWrap:"break-word",wordBreak:"normal",hyphens:"auto",maxWidth:"100%"}}>{displayName||"—"}</span>
+                          <div key={i} style={{
+                            display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,minWidth:0,borderRadius:6,padding:"8px 3px",
+                            background:needsFill?"var(--bg-warn)":"var(--bg-row)",
+                            border:needsFill?"2px solid var(--text-warning)":"1px solid var(--border)",
+                            boxShadow:needsFill?"0 0 8px rgba(210,153,34,0.5)":"none",
+                            opacity:(!isBench&&p)?0.55:1,
+                          }}>
+                            <span style={{fontSize:14,fontWeight:700,color:needsFill?"var(--text-warning)":(POS_COLORS[slot]||"var(--text-muted)"),letterSpacing:"0.01em"}}>{slot}</span>
+                            <span style={{fontSize:11,fontWeight:600,color:p?"var(--text-primary)":(needsFill?"var(--text-warning)":"var(--text-muted)"),textAlign:"center",lineHeight:1.15,overflowWrap:"break-word",wordBreak:"normal",hyphens:"auto",maxWidth:"100%"}}>{displayName||(needsFill?"Needed":"—")}</span>
                           </div>
                         );
                       })}
@@ -1657,9 +1709,17 @@ export default function App() {
               </div>
               {ROSTER_SLOTS.map((slot,i)=>{
                 const p=roster[i];
+                const isBench = slot==="BN";
+                const needsFill = !isBench && !p;
                 return (
-                  <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",marginBottom:3,background:"var(--bg-card)",borderRadius:6,border:`1px solid var(--border)`}}>
-                    <span style={{fontSize:9,fontWeight:500,color:"var(--text-muted)",width:36}}>{slot}</span>
+                  <div key={i} style={{
+                    display:"flex",alignItems:"center",gap:8,padding:"7px 10px",marginBottom:3,borderRadius:6,
+                    background:needsFill?"var(--bg-warn)":"var(--bg-card)",
+                    border:needsFill?"2px solid var(--text-warning)":"1px solid var(--border)",
+                    boxShadow:needsFill?"0 0 8px rgba(210,153,34,0.45)":"none",
+                    opacity:(!isBench&&p)?0.6:1,
+                  }}>
+                    <span style={{fontSize:9,fontWeight:needsFill?800:500,color:needsFill?"var(--text-warning)":"var(--text-muted)",width:36}}>{slot}</span>
                     {p?<>
                       <span style={{fontWeight:500,fontSize:11,flex:1}}>{p.name}</span>
                       <span style={{fontSize:9,color:"var(--text-secondary)"}}>{p.team}</span>
@@ -1667,7 +1727,7 @@ export default function App() {
                       <span style={{fontSize:9,color:safetyTextColor(p.safety)}}>{scoreLabel(p.safety)}</span>
                       <span style={{fontSize:9,color:"var(--text-muted)"}}>Bye {p.bye}</span>
                       {SOS[p.team]&&<span style={{fontSize:8,color:sosTextColor(SOS[p.team].e)}}>SOS {SOS[p.team].e}</span>}
-                    </>:<span style={{fontSize:10,color:"var(--text-muted)",fontStyle:"italic"}}>Empty</span>}
+                    </>:<span style={{fontSize:10,color:needsFill?"var(--text-warning)":"var(--text-muted)",fontStyle:"italic",fontWeight:needsFill?700:400}}>{needsFill?"Needed":"Empty"}</span>}
                   </div>
                 );
               })}
@@ -1752,6 +1812,12 @@ export default function App() {
               </div>
               <button onClick={()=>setSelected(null)} style={{background:"none",border:"none",cursor:"pointer",color:"var(--text-muted)",fontSize:14,padding:0}}>✕</button>
             </div>
+
+            {!drafted.includes(selected.id) && (rosterByeCounts[selected.bye]||0)>=2 && (
+              <div style={{fontSize:10,fontWeight:700,color:"var(--text-warning)",background:"var(--bg-warn)",border:"1px solid var(--text-warning)",borderRadius:6,padding:"5px 8px",marginBottom:10}}>
+                ⚠ {ordinal((rosterByeCounts[selected.bye]||0)+1)} player on Bye {selected.bye}
+              </div>
+            )}
 
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5,marginBottom:12}}>
               {[
