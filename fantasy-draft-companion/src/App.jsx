@@ -575,6 +575,33 @@ function parseFantasyProsRows(text, forcedPos) {
   return out;
 }
 
+// Parses a Notes CSV independent of rank — unlike parseFantasyProsRows, a row isn't dropped
+// for lacking an RK column, since Notes files only need to supply name/team/pos/bye/notes.
+function parseNotesRows(text) {
+  const rows = parseCSV(text);
+  if (!rows.length) return [];
+  const headers = rows[0];
+  const idx = {
+    name: headerIndex(headers, "PLAYER NAME"),
+    team: headerIndex(headers, "TEAM"),
+    pos: headerIndex(headers, "POS"),
+    bye: headerIndex(headers, "BYE WEEK"),
+    notes: headerIndex(headers, "NOTES"),
+  };
+  const out = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    const name = idx.name >= 0 ? (r[idx.name] || "").trim() : "";
+    if (!name) continue;
+    const team = normalizeTeam(idx.team >= 0 ? r[idx.team] : "");
+    const pos = idx.pos >= 0 ? splitPosRank(r[idx.pos]).pos : "";
+    const bye = idx.bye >= 0 ? parseIntSafe(r[idx.bye]) : null;
+    const notes = idx.notes >= 0 ? (r[idx.notes] || "").trim() : "";
+    out.push({ name, team, pos, bye, notes });
+  }
+  return out;
+}
+
 // Identifies a player-data CSV's role from its headers (never from filename).
 // Overview and Notes files are checked first since they share most columns with the
 // main Rankings file but carry a distinguishing column (UPSIDE/BUST, or NOTES without BEST).
@@ -656,7 +683,7 @@ function buildImportedPlayerData(files) {
   // Notes: primary bye source + Intel Drop text. Only touches players already in the pool.
   let notesText = "", notesCount = 0;
   if (notesFile) {
-    const notesRows = parseFantasyProsRows(notesFile.text, null);
+    const notesRows = parseNotesRows(notesFile.text);
     const withNotes = notesRows.filter(r => r.notes);
     notesCount = withNotes.length;
     notesText = withNotes.map(r => `${r.name} (${r.team}, ${r.pos}): ${r.notes}`).join("\n");
@@ -826,7 +853,21 @@ const LS_KEYS = {
   round:"fdc_round", pick:"fdc_pick", draftPos:"fdc_draftpos", league:"fdc_league",
   customRankings:"fdc_custom_rankings", playerNotes:"fdc_player_notes",
   defenseRankings:"fdc_defense_rankings",
+  rankingsImportedAt:"fdc_rankings_imported_at",
 };
+
+// Date.now() -> "Mon Aug 4, 2026 at 9:14 PM"
+function formatImportTimestamp(ms) {
+  if (!ms) return "";
+  const d = new Date(ms);
+  const weekday = d.toLocaleDateString("en-US", { weekday: "short" });
+  const month = d.toLocaleDateString("en-US", { month: "short" });
+  let hours = d.getHours();
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  const ampm = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12 || 12;
+  return `${weekday} ${month} ${d.getDate()}, ${d.getFullYear()} at ${hours}:${minutes} ${ampm}`;
+}
 
 function loadLS(key, fallback) {
   try {
@@ -889,6 +930,7 @@ export default function App() {
     setDraftPosByLeague(prev => { const n=[...prev]; n[league]=val; return n; });
   }, [league]);
   const [hasCustomRankings, setHasCustomRankings] = useState(() => loadLS(LS_KEYS.customRankings, false));
+  const [rankingsImportedAt, setRankingsImportedAt] = useState(() => loadLS(LS_KEYS.rankingsImportedAt, null));
   const [activeTab, setActiveTab] = useState("board");
   const [campText, setCampText] = useState("");
   const [campStatus, setCampStatus] = useState("idle");
@@ -922,6 +964,7 @@ export default function App() {
   useEffect(() => { saveLS(LS_KEYS.draftPos, draftPosByLeague); }, [draftPosByLeague]);
   useEffect(() => { saveLS(LS_KEYS.league, league); }, [league]);
   useEffect(() => { saveLS(LS_KEYS.customRankings, hasCustomRankings); }, [hasCustomRankings]);
+  useEffect(() => { saveLS(LS_KEYS.rankingsImportedAt, rankingsImportedAt); }, [rankingsImportedAt]);
   useEffect(() => { saveLS(LS_KEYS.playerNotes, playerNotes); }, [playerNotes]);
   useEffect(() => { saveLS(LS_KEYS.defenseRankings, defenseRankings); }, [defenseRankings]);
 
@@ -1256,6 +1299,7 @@ export default function App() {
     setPlayerDataImportError(null);
     setPlayerDataImportInfo(null);
     setHasCustomRankings(false);
+    setRankingsImportedAt(null);
     setDefenseRankings({});
     setDefImportInfo(null);
     setDefImportError(null);
@@ -1287,6 +1331,7 @@ export default function App() {
         hasNotes: notesCount > 0, hasOverview: overviewCount > 0,
       });
       setHasCustomRankings(true);
+      setRankingsImportedAt(Date.now());
     } catch (err) {
       setPlayerDataImportError(err.message || "Failed to import player data CSVs");
     } finally {
@@ -1649,7 +1694,10 @@ export default function App() {
             ⬆ Import Defense CSV
           </button>
           {hasCustomRankings&&(
-            <span title="Custom rankings loaded from CSV import are saved and will persist across refreshes" style={{fontSize:9,display:"flex",alignItems:"center",gap:4,padding:"3px 8px",borderRadius:"var(--radius)",background:"var(--bg-success)",color:"var(--text-success)",fontWeight:500}}>
+            <span
+              title={`Custom rankings loaded from CSV import are saved and will persist across refreshes${rankingsImportedAt?`\nLast updated: ${formatImportTimestamp(rankingsImportedAt)}`:""}`}
+              style={{fontSize:9,display:"flex",alignItems:"center",gap:4,padding:"3px 8px",borderRadius:"var(--radius)",background:"var(--bg-success)",color:"var(--text-success)",fontWeight:500,cursor:"default"}}
+            >
               <span style={{width:6,height:6,borderRadius:"50%",background:"var(--text-success)",display:"inline-block"}}/> Rankings saved
             </span>
           )}
