@@ -164,23 +164,24 @@ const TIER_LABELS = {
   K: { 1: "All" }, DEF: { 1: "All" },
 };
 
+// 2026 PFF O-line rankings. Rank 1-5 Elite, 6-10 Strong, 11-16 Average, 17-22 Below Avg, 23-27 Poor, 28-32 Weak.
 const OLINE = {
-  PHI:{run:95,pass:94,label:"Elite"},DET:{run:93,pass:91,label:"Elite"},
-  KC:{run:88,pass:90,label:"Elite"},BAL:{run:92,pass:87,label:"Elite"},
-  BUF:{run:84,pass:89,label:"Strong"},SF:{run:87,pass:86,label:"Strong"},
-  CIN:{run:82,pass:85,label:"Strong"},MIA:{run:80,pass:83,label:"Strong"},
-  GB:{run:83,pass:82,label:"Strong"},HOU:{run:79,pass:81,label:"Average"},
-  DAL:{run:78,pass:80,label:"Average"},LAR:{run:77,pass:79,label:"Average"},
-  TB:{run:75,pass:78,label:"Average"},SEA:{run:76,pass:76,label:"Average"},
-  PIT:{run:74,pass:75,label:"Average"},MIN:{run:73,pass:74,label:"Average"},
-  ATL:{run:72,pass:73,label:"Below Avg"},IND:{run:71,pass:72,label:"Below Avg"},
-  NYG:{run:68,pass:70,label:"Below Avg"},JAX:{run:67,pass:69,label:"Below Avg"},
-  WAS:{run:70,pass:68,label:"Below Avg"},LV:{run:65,pass:67,label:"Poor"},
-  NE:{run:64,pass:66,label:"Poor"},NYJ:{run:63,pass:65,label:"Poor"},
-  NO:{run:69,pass:63,label:"Poor"},CAR:{run:60,pass:62,label:"Poor"},
-  TEN:{run:61,pass:61,label:"Poor"},ARI:{run:62,pass:60,label:"Poor"},
-  CHI:{run:66,pass:64,label:"Poor"},CLE:{run:81,pass:77,label:"Average"},
-  LAC:{run:76,pass:82,label:"Average"},DEN:{run:74,pass:76,label:"Average"},
+  DEN:{run:74,pass:76,label:"Elite"},PHI:{run:95,pass:94,label:"Elite"},
+  TB:{run:75,pass:78,label:"Elite"},IND:{run:71,pass:72,label:"Elite"},
+  CHI:{run:66,pass:64,label:"Elite"},BUF:{run:84,pass:89,label:"Strong"},
+  LAC:{run:76,pass:82,label:"Strong"},KC:{run:88,pass:90,label:"Strong"},
+  ATL:{run:72,pass:73,label:"Strong"},SF:{run:87,pass:86,label:"Strong"},
+  LAR:{run:77,pass:79,label:"Average"},MIN:{run:73,pass:74,label:"Average"},
+  NE:{run:64,pass:66,label:"Average"},PIT:{run:74,pass:75,label:"Average"},
+  SEA:{run:76,pass:76,label:"Average"},NO:{run:69,pass:63,label:"Average"},
+  DAL:{run:78,pass:80,label:"Below Avg"},LV:{run:65,pass:67,label:"Below Avg"},
+  DET:{run:93,pass:91,label:"Below Avg"},CIN:{run:82,pass:85,label:"Below Avg"},
+  NYJ:{run:63,pass:65,label:"Below Avg"},ARI:{run:62,pass:60,label:"Below Avg"},
+  NYG:{run:68,pass:70,label:"Poor"},BAL:{run:92,pass:87,label:"Poor"},
+  MIA:{run:80,pass:83,label:"Poor"},CAR:{run:60,pass:62,label:"Poor"},
+  HOU:{run:79,pass:81,label:"Poor"},GB:{run:83,pass:82,label:"Weak"},
+  TEN:{run:61,pass:61,label:"Weak"},JAX:{run:67,pass:69,label:"Weak"},
+  CLE:{run:81,pass:77,label:"Weak"},WAS:{run:70,pass:68,label:"Weak"},
 };
 
 const DEF = {
