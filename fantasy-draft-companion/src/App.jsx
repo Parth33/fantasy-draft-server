@@ -398,6 +398,21 @@ function meterWidth(val) {
   const map = {"Low":15,"Slight":35,"Medium":60,"High":90,"Very Safe":90,"Safe":72,"Solid":55,"Okay":35,"High reward":90,"Solid reward":65};
   return map[val] || 50;
 }
+// Overview CSV's 1-5 upside/bust ratings — higher upside is good (green), higher bust risk is bad (red).
+function upsideColor(v) {
+  if (v == null) return "var(--text-muted)";
+  if (v >= 5) return "#00c853";
+  if (v === 4) return "var(--sig-green)";
+  if (v === 3) return "var(--sig-amber)";
+  return "var(--sig-red)";
+}
+function bustColor(v) {
+  if (v == null) return "var(--text-muted)";
+  if (v <= 1) return "var(--sig-green)";
+  if (v === 2) return "var(--sig-green)";
+  if (v === 3) return "var(--sig-amber)";
+  return "var(--sig-red)";
+}
 
 // ---- FantasyPros CSV import ----
 
@@ -524,6 +539,8 @@ function parseFantasyProsRows(text, forcedPos) {
     avg: headerIndex(headers, "AVG."),
     stddev: headerIndex(headers, "STD.DEV"),
     notes: headerIndex(headers, "NOTES"),
+    upside: headerIndex(headers, "UPSIDE"),
+    bust: headerIndex(headers, "BUST"),
   };
   const out = [];
   for (let i = 1; i < rows.length; i++) {
@@ -551,16 +568,24 @@ function parseFantasyProsRows(text, forcedPos) {
     const avg = idx.avg >= 0 ? parseFloatSafe(r[idx.avg]) : null;
     const stddev = idx.stddev >= 0 ? parseFloatSafe(r[idx.stddev]) : null;
     const notes = idx.notes >= 0 ? (r[idx.notes] || "").trim() : "";
-    out.push({ rank, tier, name, team, pos, posRank, bye, sosStars, ecrVsAdp, best, worst, avg, stddev, notes });
+    const upside = idx.upside >= 0 ? parseSosStars(r[idx.upside]) : null;
+    const bust = idx.bust >= 0 ? parseSosStars(r[idx.bust]) : null;
+    out.push({ rank, tier, name, team, pos, posRank, bye, sosStars, ecrVsAdp, best, worst, avg, stddev, notes, upside, bust });
   }
   return out;
 }
 
+// Identifies a player-data CSV's role from its headers (never from filename).
+// Overview and Notes files are checked first since they share most columns with the
+// main Rankings file but carry a distinguishing column (UPSIDE/BUST, or NOTES without BEST).
 function classifyFileKind(text) {
   const rows = parseCSV(text);
   if (!rows.length) return "unknown";
   const headers = rows[0];
-  if (headerIndex(headers, "POS") >= 0) return "main";
+  const has = name => headerIndex(headers, name) >= 0;
+  if (has("UPSIDE") && has("BUST")) return "overview";
+  if (has("NOTES") && !has("BEST")) return "notes";
+  if (has("POS")) return "main";
   const nameIdx = headerIndex(headers, "PLAYER NAME");
   const firstName = (rows[1]?.[nameIdx] || "").toLowerCase();
   if (TEAM_NICKNAMES.some(n => firstName.includes(n))) return "DEF";
@@ -574,15 +599,18 @@ function toAppPlayer(raw, id) {
     rank: raw.rank, adp: raw.rank, bye: raw.bye,
     posRank: raw.posRank, sosStars: raw.sosStars, ecrVsAdp: raw.ecrVsAdp,
     best: raw.best, worst: raw.worst, avg: raw.avg, stddev: raw.stddev,
+    upside: raw.upside ?? null, bust: raw.bust ?? null, notes: raw.notes || "",
     risk: deriveRisk(tier), reward: deriveReward(raw.sosStars), safety: deriveSafety(tier),
   };
 }
 
-// Merges the main ALL file with optional dedicated K/DST files. Dedicated files override
-// tier/posRank/bye/sosStars/ecrVsAdp for players already in the main pool (matched by name),
-// and supplement any K/DST players missing from the main pool's top-N cut.
-function buildImportedPlayerPool(files) {
-  let mainFile = null, kFile = null, defFile = null;
+// Merges the Rankings file with optional Notes, Overview, and dedicated K/DST files — all
+// matched by normalized player name, all identified by header shape rather than filename.
+// Notes supplies bye (primary) + notes text; Overview supplies bye (fallback), upside, bust,
+// and sosStars; dedicated K/DST files override tier/posRank/bye/sosStars/ecrVsAdp for players
+// already in the main pool, and supplement any K/DST players missing from the top-N cut.
+function buildImportedPlayerData(files) {
+  let mainFile = null, kFile = null, defFile = null, notesFile = null, overviewFile = null;
   const fileSummaries = [];
   files.forEach(f => {
     const kind = classifyFileKind(f.text);
@@ -590,8 +618,10 @@ function buildImportedPlayerPool(files) {
     if (kind === "main" && !mainFile) mainFile = f;
     else if (kind === "K" && !kFile) kFile = f;
     else if (kind === "DEF" && !defFile) defFile = f;
+    else if (kind === "notes" && !notesFile) notesFile = f;
+    else if (kind === "overview" && !overviewFile) overviewFile = f;
   });
-  if (!mainFile) throw new Error("No main ALL rankings file found (needs a POS column).");
+  if (!mainFile) throw new Error("No Rankings file found (needs BEST/WORST/AVG./STD.DEV columns).");
 
   const mainRows = parseFantasyProsRows(mainFile.text, null);
   const sortedMain = [...mainRows].sort((a, b) => a.rank - b.rank).slice(0, MAIN_POOL_CAP);
@@ -623,9 +653,43 @@ function buildImportedPlayerPool(files) {
   applyOverride(kFile, "K", 900);
   applyOverride(defFile, "DEF", 950);
 
+  // Notes: primary bye source + Intel Drop text. Only touches players already in the pool.
+  let notesText = "", notesCount = 0;
+  if (notesFile) {
+    const notesRows = parseFantasyProsRows(notesFile.text, null);
+    const withNotes = notesRows.filter(r => r.notes);
+    notesCount = withNotes.length;
+    notesText = withNotes.map(r => `${r.name} (${r.team}, ${r.pos}): ${r.notes}`).join("\n");
+    notesRows.forEach(r => {
+      const key = normalizeName(r.name);
+      const existing = byKey.get(key);
+      if (!existing) return;
+      byKey.set(key, { ...existing, bye: r.bye ?? existing.bye, notes: r.notes || existing.notes });
+    });
+  }
+
+  // Overview: upside/bust + sosStars, and bye as a fallback only if Notes didn't already set it.
+  let overviewCount = 0;
+  if (overviewFile) {
+    const overviewRows = parseFantasyProsRows(overviewFile.text, null);
+    overviewCount = overviewRows.length;
+    overviewRows.forEach(r => {
+      const key = normalizeName(r.name);
+      const existing = byKey.get(key);
+      if (!existing) return;
+      byKey.set(key, {
+        ...existing,
+        bye: existing.bye ?? r.bye,
+        sosStars: r.sosStars ?? existing.sosStars,
+        upside: r.upside,
+        bust: r.bust,
+      });
+    });
+  }
+
   const merged = Array.from(byKey.values()).sort((a, b) => a.rank - b.rank);
   const players = merged.map((p, i) => toAppPlayer(p, i + 1));
-  return { players, fileSummaries };
+  return { players, fileSummaries, notesText, notesCount, overviewCount };
 }
 
 function getRecs(available, roster, round, defMap = DEF) {
@@ -832,10 +896,8 @@ export default function App() {
   const [campLastRun, setCampLastRun] = useState(null);
   const [recentPicksByLeague, setRecentPicksByLeague] = useState([[], []]);
   const [theme, setTheme] = useState("dark");
-  const [importInfo, setImportInfo] = useState(null);
-  const [importError, setImportError] = useState(null);
-  const [notesImportInfo, setNotesImportInfo] = useState(null);
-  const [notesImportError, setNotesImportError] = useState(null);
+  const [playerDataImportInfo, setPlayerDataImportInfo] = useState(null);
+  const [playerDataImportError, setPlayerDataImportError] = useState(null);
   const [defImportInfo, setDefImportInfo] = useState(null);
   const [defImportError, setDefImportError] = useState(null);
   const [slotMsg, setSlotMsg] = useState(null);
@@ -844,8 +906,7 @@ export default function App() {
   const [tagPick, setTagPick] = useState("");
   const [notePick, setNotePick] = useState("");
   const sidebarRef = useRef(null);
-  const fileInputRef = useRef(null);
-  const notesFileInputRef = useRef(null);
+  const playerDataInputRef = useRef(null);
   const defenseFileInputRef = useRef(null);
 
   useEffect(() => {
@@ -1192,20 +1253,23 @@ export default function App() {
     setCampResults([]);
     setCampStatus("idle");
     setCampLastRun(null);
-    setImportError(null);
-    setImportInfo(null);
+    setPlayerDataImportError(null);
+    setPlayerDataImportInfo(null);
     setHasCustomRankings(false);
     setDefenseRankings({});
     setDefImportInfo(null);
     setDefImportError(null);
   };
 
-  const handleImportFiles = async (e) => {
+  // Single multi-file picker for the Rankings, Notes, and Overview CSVs (plus optional
+  // dedicated K/DST files) — each file's role is detected from its column headers, not its
+  // filename or picker order, so files can be selected in any order.
+  const handleImportPlayerData = async (e) => {
     const fileList = Array.from(e.target.files || []);
     if (!fileList.length) return;
     try {
       const files = await Promise.all(fileList.map(async f => ({ name: f.name, text: await f.text() })));
-      const { players: imported, fileSummaries } = buildImportedPlayerPool(files);
+      const { players: imported, fileSummaries, notesText, notesCount, overviewCount } = buildImportedPlayerData(files);
       setPlayers(applyDefenseTiersToPlayers(imported, defenseRankings));
       setDraftedIds([[], []]);
       setRosters([Array(15).fill(null), Array(15).fill(null)]);
@@ -1216,45 +1280,15 @@ export default function App() {
       setCampResults([]);
       setCampStatus("idle");
       setCampLastRun(null);
-      setImportError(null);
-      setImportInfo({ count: imported.length, timestamp: new Date(), files: fileSummaries });
+      if (notesText) setCampText(notesText);
+      setPlayerDataImportError(null);
+      setPlayerDataImportInfo({
+        count: imported.length, timestamp: new Date(), files: fileSummaries,
+        hasNotes: notesCount > 0, hasOverview: overviewCount > 0,
+      });
       setHasCustomRankings(true);
     } catch (err) {
-      setImportError(err.message || "Failed to import CSV files");
-    } finally {
-      e.target.value = "";
-    }
-  };
-
-  const handleImportNotesFile = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      const text = await file.text();
-      const rows = parseFantasyProsRows(text, null);
-      const withNotes = rows.filter(r => r.notes);
-      setCampText(withNotes.map(r => `${r.name} (${r.team}, ${r.pos}): ${r.notes}`).join("\n"));
-
-      // The main Rankings CSV has no BYE WEEK column, but the Notes CSV does — pull it out here
-      // and attach it to matching players (by normalized name) everywhere a player object lives,
-      // so bye weeks show up on the board even for players drafted before this import.
-      const byeByName = new Map();
-      rows.forEach(r => { if (r.bye != null) byeByName.set(normalizeName(r.name), r.bye); });
-      if (byeByName.size) {
-        const applyBye = p => {
-          if (!p) return p;
-          const bye = byeByName.get(normalizeName(p.name));
-          return (bye != null && bye !== p.bye) ? { ...p, bye } : p;
-        };
-        setPlayers(prev => prev.map(applyBye));
-        setRosters(prev => prev.map(teamRoster => teamRoster.map(applyBye)));
-        setSelected(prev => applyBye(prev));
-      }
-
-      setNotesImportError(null);
-      setNotesImportInfo({ count: withNotes.length, timestamp: new Date() });
-    } catch (err) {
-      setNotesImportError(err.message || "Failed to import notes CSV");
+      setPlayerDataImportError(err.message || "Failed to import player data CSVs");
     } finally {
       e.target.value = "";
     }
@@ -1370,6 +1404,21 @@ export default function App() {
       </div>
       <div style={{height:5,borderRadius:3,background:"var(--border)",overflow:"hidden"}}>
         <div style={{width:`${meterWidth(value)}%`,height:"100%",background:colorFn(value),borderRadius:3}}></div>
+      </div>
+    </div>
+  );
+
+  // 1-5 dot rating for Overview CSV's upside/bust scores.
+  const DotRating = ({label, value, colorFn}) => (
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
+      <span style={{fontSize:11,color:"var(--text-secondary)"}}>{label}</span>
+      <div style={{display:"flex",alignItems:"center",gap:5}}>
+        <div style={{display:"flex",gap:2}}>
+          {[1,2,3,4,5].map(i=>(
+            <span key={i} style={{width:7,height:7,borderRadius:"50%",background:value!=null&&i<=value?colorFn(value):"var(--border)",display:"inline-block"}}/>
+          ))}
+        </div>
+        <span style={{fontSize:11,fontWeight:600,color:colorFn(value)}}>{value!=null?`${value}/5`:"-"}</span>
       </div>
     </div>
   );
@@ -1591,13 +1640,9 @@ export default function App() {
               {nextPick.picksAway===0?"You're on the clock":`${nextPick.picksAway} pick${nextPick.picksAway===1?"":"s"} until your turn`}
             </span>
           )}
-          <input ref={fileInputRef} type="file" accept=".csv" multiple onChange={handleImportFiles} style={{display:"none"}}/>
-          <button onClick={()=>fileInputRef.current?.click()} style={{fontSize:10,padding:"3px 9px",borderRadius:6,border:`1px solid var(--border)`,background:"transparent",cursor:"pointer",color:"var(--text-secondary)"}}>
-            ⬆ Import Rankings CSV
-          </button>
-          <input ref={notesFileInputRef} type="file" accept=".csv" onChange={handleImportNotesFile} style={{display:"none"}}/>
-          <button onClick={()=>notesFileInputRef.current?.click()} style={{fontSize:10,padding:"3px 9px",borderRadius:6,border:`1px solid var(--border)`,background:"transparent",cursor:"pointer",color:"var(--text-secondary)"}}>
-            ⬆ Import Notes CSV
+          <input ref={playerDataInputRef} type="file" accept=".csv" multiple onChange={handleImportPlayerData} style={{display:"none"}}/>
+          <button onClick={()=>playerDataInputRef.current?.click()} title="Select Rankings, Notes, and Overview CSVs together — file role is detected from headers, not filename" style={{fontSize:10,padding:"3px 9px",borderRadius:6,border:`1px solid var(--border)`,background:"transparent",cursor:"pointer",color:"var(--text-secondary)"}}>
+            ⬆ Import Player Data
           </button>
           <input ref={defenseFileInputRef} type="file" accept=".csv" onChange={handleImportDefenseFile} style={{display:"none"}}/>
           <button onClick={()=>defenseFileInputRef.current?.click()} style={{fontSize:10,padding:"3px 9px",borderRadius:6,border:`1px solid var(--border)`,background:"transparent",cursor:"pointer",color:"var(--text-secondary)"}}>
@@ -1630,29 +1675,16 @@ export default function App() {
         {campStatus==="done"&&<span style={{fontSize:9,padding:"2px 7px",borderRadius:"var(--radius)",background:"var(--bg-success)",color:"var(--text-success)",alignSelf:"center",marginLeft:4}}>Intel applied</span>}
       </div>
 
-      {(importInfo||importError)&&(
-        <div style={{padding:"5px 12px",background:importError?"var(--bg-danger)":"var(--bg-success)",borderBottom:`1px solid var(--border)`,display:"flex",alignItems:"center",gap:8,fontSize:10}}>
-          {importError?(
-            <span style={{color:"var(--text-danger)"}}>Import failed: {importError}</span>
+      {(playerDataImportInfo||playerDataImportError)&&(
+        <div style={{padding:"5px 12px",background:playerDataImportError?"var(--bg-danger)":"var(--bg-success)",borderBottom:`1px solid var(--border)`,display:"flex",alignItems:"center",gap:8,fontSize:10}}>
+          {playerDataImportError?(
+            <span style={{color:"var(--text-danger)"}}>Import failed: {playerDataImportError}</span>
           ):(
             <span style={{color:"var(--text-success)"}}>
-              Imported {importInfo.count} players from FantasyPros — {importInfo.timestamp.toLocaleTimeString()} · {importInfo.files.map(f=>`${f.name} (${f.kind==="main"?"ALL":f.kind==="DEF"?"DST":f.kind})`).join(", ")}
+              Player data loaded — {playerDataImportInfo.count} players{playerDataImportInfo.hasNotes?", bye weeks, notes":""}{playerDataImportInfo.hasOverview?", upside/bust scores":""} imported — {playerDataImportInfo.timestamp.toLocaleTimeString()} · {playerDataImportInfo.files.map(f=>`${f.name} (${f.kind==="main"?"Rankings":f.kind==="DEF"?"DST":f.kind==="K"?"K":f.kind==="notes"?"Notes":f.kind==="overview"?"Overview":f.kind})`).join(", ")}
             </span>
           )}
-          <button onClick={()=>{setImportInfo(null);setImportError(null);}} style={{marginLeft:"auto",background:"none",border:"none",cursor:"pointer",color:"var(--text-muted)",fontSize:11}}>✕</button>
-        </div>
-      )}
-
-      {(notesImportInfo||notesImportError)&&(
-        <div style={{padding:"5px 12px",background:notesImportError?"var(--bg-danger)":"var(--bg-success)",borderBottom:`1px solid var(--border)`,display:"flex",alignItems:"center",gap:8,fontSize:10}}>
-          {notesImportError?(
-            <span style={{color:"var(--text-danger)"}}>Notes import failed: {notesImportError}</span>
-          ):(
-            <span style={{color:"var(--text-success)"}}>
-              {notesImportInfo.count} player notes loaded into Intel Drop — {notesImportInfo.timestamp.toLocaleTimeString()}
-            </span>
-          )}
-          <button onClick={()=>{setNotesImportInfo(null);setNotesImportError(null);}} style={{marginLeft:"auto",background:"none",border:"none",cursor:"pointer",color:"var(--text-muted)",fontSize:11}}>✕</button>
+          <button onClick={()=>{setPlayerDataImportInfo(null);setPlayerDataImportError(null);}} style={{marginLeft:"auto",background:"none",border:"none",cursor:"pointer",color:"var(--text-muted)",fontSize:11}}>✕</button>
         </div>
       )}
 
@@ -2068,6 +2100,14 @@ export default function App() {
               <MeterBar label="Reward" value={selected.reward} colorFn={rewardColor} textColorFn={rewardTextColor}/>
               <MeterBar label="Safety" value={selected.safety} colorFn={safetyColor} textColorFn={safetyTextColor}/>
             </div>
+
+            {(selected.upside!=null||selected.bust!=null)&&(
+              <div style={{background:"var(--bg-row)",borderRadius:6,padding:"10px 12px",marginBottom:8,border:`1px solid var(--border)`}}>
+                <div style={{fontSize:11,fontWeight:700,color:"var(--text-primary)",marginBottom:8,textTransform:"uppercase",letterSpacing:"0.06em"}}>Upside / Bust</div>
+                <DotRating label="Upside" value={selected.upside} colorFn={upsideColor}/>
+                <DotRating label="Bust risk" value={selected.bust} colorFn={bustColor}/>
+              </div>
+            )}
 
             {(() => {
               const entry = playerNotes[selected.name] || { tags: [], notes: [] };
