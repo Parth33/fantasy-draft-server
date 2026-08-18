@@ -931,6 +931,7 @@ export default function App() {
   }, [league]);
   const [hasCustomRankings, setHasCustomRankings] = useState(() => loadLS(LS_KEYS.customRankings, false));
   const [rankingsImportedAt, setRankingsImportedAt] = useState(() => loadLS(LS_KEYS.rankingsImportedAt, null));
+  const [showRankingsTooltip, setShowRankingsTooltip] = useState(false);
   const [activeTab, setActiveTab] = useState("board");
   const [campText, setCampText] = useState("");
   const [campStatus, setCampStatus] = useState("idle");
@@ -1694,12 +1695,23 @@ export default function App() {
             ⬆ Import Defense CSV
           </button>
           {hasCustomRankings&&(
-            <span
-              title={`Custom rankings loaded from CSV import are saved and will persist across refreshes${rankingsImportedAt?`\nLast updated: ${formatImportTimestamp(rankingsImportedAt)}`:""}`}
-              style={{fontSize:9,display:"flex",alignItems:"center",gap:4,padding:"3px 8px",borderRadius:"var(--radius)",background:"var(--bg-success)",color:"var(--text-success)",fontWeight:500,cursor:"default"}}
+            <div
+              onMouseEnter={()=>setShowRankingsTooltip(true)}
+              onMouseLeave={()=>setShowRankingsTooltip(false)}
+              style={{position:"relative",display:"flex"}}
             >
-              <span style={{width:6,height:6,borderRadius:"50%",background:"var(--text-success)",display:"inline-block"}}/> Rankings saved
-            </span>
+              <span style={{fontSize:9,display:"flex",alignItems:"center",gap:4,padding:"3px 8px",borderRadius:"var(--radius)",background:"var(--bg-success)",color:"var(--text-success)",fontWeight:500,cursor:"default"}}>
+                <span style={{width:6,height:6,borderRadius:"50%",background:"var(--text-success)",display:"inline-block"}}/> Rankings saved
+              </span>
+              {showRankingsTooltip&&(
+                <div style={{position:"absolute",top:"calc(100% + 7px)",left:"50%",transform:"translateX(-50%)",zIndex:50,pointerEvents:"none"}}>
+                  <div style={{position:"absolute",top:-4,left:"50%",transform:"translateX(-50%) rotate(45deg)",width:8,height:8,background:"var(--bg-card)",borderLeft:`1px solid var(--border)`,borderTop:`1px solid var(--border)`}}/>
+                  <div style={{position:"relative",background:"var(--bg-card)",color:"var(--text-primary)",border:`1px solid var(--border)`,borderRadius:6,padding:"6px 10px",fontSize:10,fontWeight:500,whiteSpace:"nowrap",boxShadow:"0 4px 12px rgba(0,0,0,0.25)"}}>
+                    {rankingsImportedAt?`Last updated: ${formatImportTimestamp(rankingsImportedAt)}`:"Custom rankings loaded from CSV import"}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
           <button onClick={()=>setTheme(t=>t==="dark"?"light":"dark")} style={{fontSize:10,padding:"3px 9px",borderRadius:6,border:`1px solid var(--border)`,background:"transparent",cursor:"pointer",color:"var(--text-secondary)",display:"flex",alignItems:"center",gap:4}}>
             {theme==="dark"?"☀ Light":"🌙 Dark"}
