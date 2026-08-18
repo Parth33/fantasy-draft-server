@@ -847,6 +847,14 @@ function getStrategyRecommendations({ currentRound, picksIntoRound, teams, roste
   return items.slice(0,3);
 }
 
+// Shared by the search box's Overall rankings filter and the By tier panel's match highlight,
+// so both stay in lockstep as the user types.
+function matchesSearch(p, search) {
+  const q = search.trim().toLowerCase();
+  if (!q) return true;
+  return p.name.toLowerCase().includes(q) || p.team.toLowerCase().includes(q);
+}
+
 const LEAGUES = [{id:0,name:"League 1",teams:12},{id:1,name:"League 2",teams:10}];
 
 const LS_KEYS = {
@@ -1003,8 +1011,7 @@ export default function App() {
 
   const filtered = useMemo(() => (showDrafted ? players : available).filter(p => {
     const pm = posFilter==="ALL" || p.pos===posFilter;
-    const sm = !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.team.toLowerCase().includes(search.toLowerCase());
-    return pm && sm;
+    return pm && matchesSearch(p, search);
   }), [showDrafted, players, available, posFilter, search]);
 
   const sorted = useMemo(() => [...filtered].sort((a,b)=>a.rank-b.rank), [filtered]);
@@ -1271,6 +1278,24 @@ export default function App() {
     });
     setRecentPicksByLeague(prev=>{const n=[...prev];n[league]=n[league].slice(0,-1);return n;});
   };
+
+  // Cmd+Z (Mac) / Ctrl+Z (Windows) triggers the same undo as the button, everywhere except while
+  // typing in a text input/textarea (search, Intel Drop, notes, etc). A ref holds the latest
+  // undoLast so the listener can be attached once instead of re-subscribing on every render.
+  const undoLastRef = useRef(undoLast);
+  useEffect(() => { undoLastRef.current = undoLast; });
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key.toLowerCase() !== "z" || !(e.metaKey || e.ctrlKey) || e.shiftKey) return;
+      const target = e.target;
+      const isTyping = target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.isContentEditable;
+      if (isTyping) return;
+      e.preventDefault();
+      undoLastRef.current();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // Clears drafted/roster/pick progress but keeps the current (possibly imported) player pool.
   const resetDraft = () => {
@@ -1596,7 +1621,10 @@ export default function App() {
 
   // Compact row used in the "By tier" cheat sheet columns. No position badge here (the column
   // header already carries the position), so quick-mark only covers row-click -> Drafted.
-  const TierPlayerRow = ({p, isRec, zebra}) => {
+  // searchMatch/searchActive let the search box (which drives the Overall rankings filter)
+  // highlight the same players here in real time instead of filtering the column away entirely —
+  // removing rows would collapse tier context that's the whole point of this panel.
+  const TierPlayerRow = ({p, isRec, zebra, searchMatch, searchActive}) => {
     const isDrafted = drafted.includes(p.id);
     const [flash, setFlash] = useState(null);
     useEffect(() => {
@@ -1604,6 +1632,8 @@ export default function App() {
       const t = setTimeout(() => setFlash(null), 300);
       return () => clearTimeout(t);
     }, [flash]);
+    const dimmed = searchActive && !searchMatch;
+    const highlighted = searchActive && searchMatch;
     return (
       <div
         key={p.id}
@@ -1619,9 +1649,9 @@ export default function App() {
         }}
         title={`${p.name} (${p.team})`}
         className="player-row"
-        style={{display:"flex",alignItems:"baseline",gap:3,padding:"2px 5px",cursor:"pointer",minWidth:0,background:flash==="green"?"#22c55e4d":(isRec?"var(--bg-row-rec-highlight)":zebra),borderLeft:isRec?"3px solid var(--border-row-rec-highlight)":"3px solid transparent",opacity:isDrafted?0.45:1,transition:"background 0.15s"}}>
+        style={{display:"flex",alignItems:"baseline",gap:3,padding:"2px 5px",cursor:"pointer",minWidth:0,background:flash==="green"?"#22c55e4d":highlighted?"var(--bg-accent-soft)":(isRec?"var(--bg-row-rec-highlight)":zebra),borderLeft:highlighted?"3px solid var(--border-accent)":isRec?"3px solid var(--border-row-rec-highlight)":"3px solid transparent",opacity:isDrafted?0.45:dimmed?0.3:1,transition:"background 0.15s, opacity 0.15s"}}>
         <span style={{fontSize:9,fontWeight:700,color:"var(--text-secondary)",minWidth:32,flexShrink:0,textAlign:"right"}}>{p.rank}</span>
-        <span style={{fontSize:9,fontWeight:600,color:"var(--text-primary)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1,minWidth:0,textDecoration:isDrafted?"line-through":"none"}}>{p.name}</span>
+        <span style={{fontSize:9,fontWeight:highlighted?800:600,color:highlighted?"var(--text-accent)":"var(--text-primary)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1,minWidth:0,textDecoration:isDrafted?"line-through":"none"}}>{p.name}</span>
         <span style={{fontSize:8,fontWeight:600,color:"var(--text-secondary)",flexShrink:0}}>{p.team}</span>
       </div>
     );
@@ -2006,7 +2036,7 @@ export default function App() {
                                 {ps.map((p,pi)=>{
                                   const isRec=recs.some(r=>r.id===p.id);
                                   const zebra=pi%2===1?"var(--bg-row-alt)":"var(--bg-row)";
-                                  return <TierPlayerRow key={p.id} p={p} isRec={isRec} zebra={zebra}/>;
+                                  return <TierPlayerRow key={p.id} p={p} isRec={isRec} zebra={zebra} searchMatch={matchesSearch(p, search)} searchActive={!!search.trim()}/>;
                                 })}
                               </div>
                             );
