@@ -1833,7 +1833,7 @@ export default function App() {
           {/* Scarcity table */}
           {["QB","RB","WR","TE"].map(pos=>(
             <div key={pos} style={{marginBottom:10}}>
-              <div style={{fontSize:10,fontWeight:500,color:"var(--text-secondary)",padding:"2px 0 2px 6px",marginBottom:2}}>{pos}</div>
+              <div style={{fontSize:10,fontWeight:500,color:POS_COLORS[pos],padding:"2px 0 2px 6px",marginBottom:2}}>{pos}</div>
               {[1,2,3,4].map(tier=>{
                 const count=scarcity[pos]?.[tier];
                 if(count===undefined) return null;
