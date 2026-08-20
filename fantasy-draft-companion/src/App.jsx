@@ -1338,6 +1338,13 @@ export default function App() {
     setDefImportError(null);
   };
 
+  // Wipes only player tags/notes (fdc_player_notes) — leaves rankings, picks, and rosters intact.
+  const clearAllTags = () => {
+    if (!confirm("This will remove all player tags and notes. Continue?")) return;
+    localStorage.removeItem(LS_KEYS.playerNotes);
+    window.location.reload();
+  };
+
   // Single multi-file picker for the Rankings, Notes, and Overview CSVs (plus optional
   // dedicated K/DST files) — each file's role is detected from its column headers, not its
   // filename or picker order, so files can be selected in any order.
@@ -1761,6 +1768,7 @@ export default function App() {
           >↺ Undo Last Pick</button>
           <button onClick={resetDraft} title="Clear all picks and rosters, keep imported rankings" style={{fontSize:9,padding:"3px 8px",borderRadius:6,border:`1px solid var(--text-warning)`,background:"transparent",cursor:"pointer",color:"var(--text-warning)"}}>Reset Draft</button>
           <button onClick={clearAll} title="Reset everything, including rankings, to defaults" style={{fontSize:9,padding:"3px 8px",borderRadius:6,border:`1px solid var(--text-danger)`,background:"transparent",cursor:"pointer",color:"var(--text-danger)"}}>Clear All</button>
+          <button onClick={clearAllTags} title="Remove all player tags and notes" style={{fontSize:9,padding:"3px 8px",borderRadius:6,border:"1px solid #8b3a3a",background:"transparent",cursor:"pointer",color:"#8b3a3a"}}>Clear All Tags</button>
         </div>
       </div>
 
