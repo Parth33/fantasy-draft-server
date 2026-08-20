@@ -126,19 +126,24 @@ const ROW_COLS = "28px 36px 200px 44px 92px 112px 58px 108px 78px";
 const ROW_COLS_COMPACT = "22px 28px 210px 40px 72px 88px 46px 90px 76px";
 
 // Valid AI/manual tags — role tags describe usage, sentiment tags describe analyst outlook.
+// "[Analyst] LW" tags (e.g. "Boone LW") are dynamic — the AI mints one per analyst who
+// calls a player a league winner — so only the generic fallback lives in this static list.
 const VALID_TAGS = [
   "Workhorse", "Committee Back", "WR1 Role", "Target Hog", "Depth Only", "Handcuff",
-  "Boom/Bust", "Analyst Favorite", "Analyst Fade", "Injury Risk", "Breakout",
+  "Boom/Bust", "Analyst LW", "Analyst Fade", "Injury Risk", "Breakout",
   "Bounce Back", "Rookie Riser", "Aging Concern", "Situation Change",
 ];
 
+// Matches any dynamic "[Analyst] LW" league-winner tag, e.g. "Boone LW", "Analyst LW".
+const LW_TAG_RE = /\bLW$/;
+
 // Consistent color per tag — green for strong role/sentiment, red for risk/fade,
-// amber for volatile/uncertain, blue for everything else (neutral role notes).
+// amber for volatile/uncertain, gold for high-conviction analyst league-winner calls,
+// blue for everything else (neutral role notes).
 const TAG_COLORS = {
   "Workhorse": "#0e9f6e",
   "WR1 Role": "#0e9f6e",
   "Target Hog": "#0e9f6e",
-  "Analyst Favorite": "#0e9f6e",
   "Breakout": "#0e9f6e",
   "Bounce Back": "#0e9f6e",
   "Rookie Riser": "#0e9f6e",
@@ -150,7 +155,8 @@ const TAG_COLORS = {
   "Injury Risk": "#9b1c1c",
   "Aging Concern": "#9b1c1c",
 };
-function tagColor(tag) { return TAG_COLORS[tag] || "#1a56db"; }
+const LW_TAG_COLOR = "#B8860B";
+function tagColor(tag) { return LW_TAG_RE.test(tag) ? LW_TAG_COLOR : (TAG_COLORS[tag] || "#1a56db"); }
 
 const POSITIONS = ["ALL", "QB", "RB", "WR", "TE", "K", "DEF"];
 const TIER_COLORS = { 1: "#1a56db", 2: "#0e9f6e", 3: "#c27803", 4: "#9b1c1c" };

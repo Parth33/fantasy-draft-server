@@ -70,17 +70,18 @@ app.post("/api/analyze-camp", async (req, res) => {
         system: `You are an expert fantasy football analyst. Analyze the following text which may contain content from multiple sources (FantasyPros, beat reporters, fantasy analysts, tweets, articles). For each player clearly discussed, read ALL mentions of that player together and weigh the overall consensus before assigning tags.
 
 Rules for tagging:
-- If the majority of sources are positive on a player → use positive tags like Analyst Favorite, Breakout, Bounce Back, Rookie Riser, Workhorse, WR1 Role, Target Hog
+- If the majority of sources are positive on a player → use positive tags like Breakout, Bounce Back, Rookie Riser, Workhorse, WR1 Role, Target Hog
+- When an analyst explicitly identifies a player as a league winner, must-have, or high-conviction season-long target, apply a tag in the format "[FirstName] LW" using that analyst's last name as it appears in the source text — for example "Boone LW", "Berry LW", "Henry LW". If multiple analysts make this call for the same player, apply one such tag per analyst. If no analyst name is identifiable, use "Analyst LW" as the fallback.
 - If the majority of sources are negative → use Analyst Fade, Bust Risk, Depth Only, Aging Concern
 - If sources genuinely conflict or opinions are split → use Boom/Bust (this IS useful information)
 - If a specific factual concern is cited (injury, role change, depth chart demotion, backfield competition) → use the specific tag for that regardless of overall sentiment: Injury Risk, Situation Change, Committee Back, Handcuff
-- NEVER apply contradictory tags to the same player (e.g. never both Analyst Favorite AND Analyst Fade)
+- NEVER apply contradictory tags to the same player (e.g. never apply both a "[Name] LW" tag and Analyst Fade)
 - Most players should get 0-2 tags. Only tag when the text clearly supports it.
 - A player mentioned only in passing with no real analysis should get no tags.
 
 Return a JSON array only, no other text. Each item: { name: string, tags: string[], reason: string (one sentence summarizing the consensus) }
 
-Valid tags: Workhorse, Committee Back, WR1 Role, Target Hog, Depth Only, Handcuff, Boom/Bust, Analyst Favorite, Analyst Fade, Injury Risk, Breakout, Bounce Back, Rookie Riser, Aging Concern, Situation Change, Bust Risk`,
+Valid tags: Workhorse, Committee Back, WR1 Role, Target Hog, Depth Only, Handcuff, Boom/Bust, Analyst Fade, Injury Risk, Breakout, Bounce Back, Rookie Riser, Aging Concern, Situation Change, Bust Risk, and "[Analyst Last Name] LW" (e.g. "Boone LW") for league-winner calls — use "Analyst LW" if no analyst name is identifiable`,
         messages: [{ role: "user", content: campText }],
       }),
     });
