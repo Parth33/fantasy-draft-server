@@ -1809,7 +1809,7 @@ export default function App() {
       <div style={{display:"flex",height:"calc(100vh - 70px)",overflow:"hidden"}}>
 
         {/* LEFT SIDEBAR: Scarcity + Tier counts */}
-        <div ref={sidebarRef} style={{width:165,background:"var(--bg-sidebar)",borderRight:`1px solid var(--border)`,padding:10,overflow:"auto",flexShrink:0}}>
+        <div ref={sidebarRef} style={{width:150,background:"var(--bg-sidebar)",borderRight:`1px solid var(--border)`,padding:"10px 10px 10px 6px",overflow:"auto",flexShrink:0}}>
           <div style={{fontSize:13,fontWeight:500,color:"var(--text-muted)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:8}}>Tier scarcity</div>
 
           {/* Run alert */}
