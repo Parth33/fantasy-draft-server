@@ -137,26 +137,25 @@ const VALID_TAGS = [
 // Matches any dynamic "[Analyst] LW" league-winner tag, e.g. "Boone LW", "Analyst LW".
 const LW_TAG_RE = /\bLW$/;
 
-// Consistent color per tag — green for strong role/sentiment, red for risk/fade,
-// amber for volatile/uncertain, gold for high-conviction analyst league-winner calls,
-// blue for everything else (neutral role notes).
+// Consistent color per tag type, rendered as solid-fill pills with white text.
 const TAG_COLORS = {
-  "Workhorse": "#0e9f6e",
-  "WR1 Role": "#0e9f6e",
-  "Target Hog": "#0e9f6e",
-  "Breakout": "#0e9f6e",
-  "Bounce Back": "#0e9f6e",
-  "Rookie Riser": "#0e9f6e",
-  "Committee Back": "#c27803",
-  "Boom/Bust": "#c27803",
-  "Situation Change": "#c27803",
-  "Depth Only": "#9b1c1c",
-  "Analyst Fade": "#9b1c1c",
-  "Injury Risk": "#9b1c1c",
-  "Aging Concern": "#9b1c1c",
+  "Workhorse": "#2E7D32",
+  "WR1 Role": "#1565C0",
+  "RB1 Role": "#1565C0",
+  "TE1 Role": "#1565C0",
+  "Target Hog": "#0277BD",
+  "Breakout": "#6A1B9A",
+  "Bounce Back": "#00838F",
+  "Injury Risk": "#C62828",
+  "Bust Risk": "#E65100",
+  "Boom/Bust": "#F57C00",
+  "Situation Change": "#558B2F",
 };
 const LW_TAG_COLOR = "#B8860B";
-function tagColor(tag) { return LW_TAG_RE.test(tag) ? LW_TAG_COLOR : (TAG_COLORS[tag] || "#1a56db"); }
+const FALLBACK_TAG_COLOR = "#546E7A";
+function tagColor(tag) { return LW_TAG_RE.test(tag) ? LW_TAG_COLOR : (TAG_COLORS[tag] || FALLBACK_TAG_COLOR); }
+// Shared pill styling for every tag/badge in the app — solid color fill, white text, fully rounded.
+const tagPillStyle = tag => ({fontSize:11,fontWeight:600,padding:"3px 10px",borderRadius:999,background:tagColor(tag),color:"#fff",whiteSpace:"nowrap",lineHeight:1.3});
 
 const POSITIONS = ["ALL", "QB", "RB", "WR", "TE", "K", "DEF"];
 const TIER_COLORS = { 1: "#1a56db", 2: "#0e9f6e", 3: "#c27803", 4: "#9b1c1c" };
@@ -1582,7 +1581,7 @@ export default function App() {
               const extra = allTags.length - visible.length;
               return <>
                 {visible.map(t=>(
-                  <span key={t} style={{fontSize:compact?7:8,fontWeight:700,padding:"2px 6px",borderRadius:3,background:`${tagColor(t)}26`,color:tagColor(t),border:`1px solid ${tagColor(t)}55`,whiteSpace:"nowrap"}}>{t}</span>
+                  <span key={t} style={tagPillStyle(t)}>{t}</span>
                 ))}
                 {extra>0&&<span style={{fontSize:compact?7:8,fontWeight:700,color:"var(--text-muted)"}}>+{extra}</span>}
               </>;
@@ -2153,7 +2152,7 @@ export default function App() {
                         <span style={{fontSize:16,fontWeight:600,width:150,flexShrink:0}}>{r.name}</span>
                         <span style={{fontSize:14,color:"var(--text-primary)",flex:1,minWidth:120}}>{r.reason}</span>
                         {(r.tags||[]).map(tag=>(
-                          <span key={tag} style={{fontSize:13,padding:"3px 9px",borderRadius:3,background:tagColor(tag),color:"#fff"}}>{tag}</span>
+                          <span key={tag} style={tagPillStyle(tag)}>{tag}</span>
                         ))}
                       </div>
                     ))}
@@ -2228,7 +2227,7 @@ export default function App() {
                   <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:6}}>
                     {entry.tags.length===0&&<span style={{fontSize:11,color:"var(--text-secondary)"}}>No tags yet</span>}
                     {entry.tags.map(tag=>(
-                      <span key={tag} style={{display:"inline-flex",alignItems:"center",gap:3,fontSize:8,fontWeight:700,padding:"2px 6px",borderRadius:3,background:`${tagColor(tag)}26`,color:tagColor(tag),border:`1px solid ${tagColor(tag)}55`}}>
+                      <span key={tag} style={{...tagPillStyle(tag),display:"inline-flex",alignItems:"center",gap:3}}>
                         {tag}
                         <span onClick={()=>removeTagFromPlayer(selected.name,tag)} style={{cursor:"pointer",fontWeight:800,marginLeft:1}}>✕</span>
                       </span>
