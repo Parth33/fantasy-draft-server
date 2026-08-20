@@ -1058,18 +1058,33 @@ export default function App() {
     return inRound===snake;
   }, [pick, round, teams, draftPos]);
 
-  // Scarcity data
+  // Group currently-available players by position+tier — backs the cliff warning, the "last in
+  // tier" badge, and the By-tier cheat sheet.
+  const tiersByPos = useMemo(() => {
+    const byPos={};
+    ["QB","RB","WR","TE"].forEach(pos=>{
+      const byTier={};
+      available.filter(p=>p.pos===pos).forEach(p=>{(byTier[p.tier] ||= []).push(p);});
+      Object.values(byTier).forEach(list=>list.sort((a,b)=>a.rank-b.rank));
+      byPos[pos]=byTier;
+    });
+    return byPos;
+  }, [available]);
+
+  // Scarcity data — derived from tiersByPos so the sidebar always agrees with the By-tier panel.
+  // Raw tier numbers come from the overall consensus rankings (a position's best players may not
+  // land in raw Tier 1), so remap to sequential display tiers per position exactly like the
+  // By-tier cheat sheet does, instead of indexing by literal raw tier number.
   const scarcity = useMemo(() => {
     const data={};
     ["QB","RB","WR","TE"].forEach(pos=>{
       data[pos]={};
-      [1,2,3,4].forEach(tier=>{
-        const count = available.filter(p=>p.pos===pos&&p.tier===tier).length;
-        if(count>=0) data[pos][tier]=count;
-      });
+      const byTier=tiersByPos[pos]||{};
+      const rawTiers=Object.keys(byTier).map(Number).sort((a,b)=>a-b);
+      rawTiers.forEach((rawTier,ti)=>{ data[pos][ti+1]=byTier[rawTier].length; });
     });
     return data;
-  }, [available]);
+  }, [tiersByPos]);
 
   // Run detection: how many of each pos in last 6 picks
   const runAlert = useMemo(() => {
@@ -1091,18 +1106,6 @@ export default function App() {
     });
     return alerts;
   }, [scarcity]);
-
-  // Group currently-available players by position+tier — backs both the cliff warning and the "last in tier" badge.
-  const tiersByPos = useMemo(() => {
-    const byPos={};
-    ["QB","RB","WR","TE"].forEach(pos=>{
-      const byTier={};
-      available.filter(p=>p.pos===pos).forEach(p=>{(byTier[p.tier] ||= []).push(p);});
-      Object.values(byTier).forEach(list=>list.sort((a,b)=>a.rank-b.rank));
-      byPos[pos]=byTier;
-    });
-    return byPos;
-  }, [available]);
 
   // How many total picks (across all teams) happen between now and my next turn — snake draft always
   // gives me exactly one pick per round, so my next turn is always in round+1.
