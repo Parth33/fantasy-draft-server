@@ -1796,11 +1796,11 @@ export default function App() {
 
         {/* LEFT SIDEBAR: Scarcity + Tier counts */}
         <div ref={sidebarRef} style={{width:165,background:"var(--bg-sidebar)",borderRight:`1px solid var(--border)`,padding:10,overflow:"auto",flexShrink:0}}>
-          <div style={{fontSize:9,fontWeight:500,color:"var(--text-muted)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:8}}>Tier scarcity</div>
+          <div style={{fontSize:13,fontWeight:500,color:"var(--text-muted)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:8}}>Tier scarcity</div>
 
           {/* Run alert */}
           {runAlert&&(
-            <div style={{background:"var(--bg-warning)",border:"0.5px solid var(--border-warning)",borderRadius:"var(--radius)",padding:"6px 8px",marginBottom:8,fontSize:9}}>
+            <div style={{background:"var(--bg-warning)",border:"0.5px solid var(--border-warning)",borderRadius:"var(--radius)",padding:"6px 8px",marginBottom:8,fontSize:13}}>
               <div style={{fontWeight:600,color:"var(--text-warning)"}}>⚡ Run alert</div>
               <div style={{color:"var(--text-warning)"}}>{runAlert.count} {runAlert.pos}s in last 6 picks</div>
             </div>
@@ -1808,24 +1808,24 @@ export default function App() {
 
           {/* Tier drain alerts */}
           {tierAlerts.map((a,i)=>(
-            <div key={i} style={{background:a.urgent?"var(--bg-danger)":"var(--bg-warning)",border:`0.5px solid ${a.urgent?"var(--border-danger)":"var(--border-warning)"}`,borderRadius:"var(--radius)",padding:"5px 7px",marginBottom:5,fontSize:9}}>
+            <div key={i} style={{background:a.urgent?"var(--bg-danger)":"var(--bg-warning)",border:`0.5px solid ${a.urgent?"var(--border-danger)":"var(--border-warning)"}`,borderRadius:"var(--radius)",padding:"5px 7px",marginBottom:5,fontSize:13}}>
               <span style={{fontWeight:500,color:a.urgent?"var(--text-danger)":"var(--text-warning)"}}>{a.pos} T{a.tier}: {a.count} left</span>
-              {a.urgent&&<div style={{color:"var(--text-danger)",fontSize:8,fontWeight:800}}>Act now</div>}
+              {a.urgent&&<div style={{color:"var(--text-danger)",fontSize:13,fontWeight:800}}>Act now</div>}
             </div>
           ))}
 
           {/* Scarcity table */}
           {["QB","RB","WR","TE"].map(pos=>(
             <div key={pos} style={{marginBottom:10}}>
-              <div style={{fontSize:9,fontWeight:500,color:"var(--text-secondary)",marginBottom:4}}>{pos}</div>
+              <div style={{fontSize:13,fontWeight:500,color:"var(--text-secondary)",marginBottom:4}}>{pos}</div>
               {[1,2,3,4].map(tier=>{
                 const count=scarcity[pos]?.[tier];
                 if(count===undefined) return null;
                 const color=count===0?"var(--tier-t4)":count<=2?"var(--tier-t3)":count<=5?"var(--tier-t1)":"var(--tier-t2)";
                 return (
                   <div key={tier} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"2px 0",borderBottom:"0.5px solid var(--border)"}}>
-                    <span style={{fontSize:11,fontWeight:600,color:"var(--text-secondary)"}}>T{tier}</span>
-                    <span style={{fontSize:10,fontWeight:500,color}}>{count}</span>
+                    <span style={{fontSize:13,fontWeight:600,color:"var(--text-secondary)"}}>T{tier}</span>
+                    <span style={{fontSize:13,fontWeight:500,color}}>{count}</span>
                   </div>
                 );
               })}
@@ -2135,11 +2135,11 @@ export default function App() {
                   <div style={{fontSize:11,fontWeight:500,marginBottom:6}}>Tags added to player notes</div>
                   <div style={{display:"flex",flexDirection:"column",gap:4}}>
                     {campResults.map((r,i)=>(
-                      <div key={`${r.name}-${i}`} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:"var(--surface-1)",borderRadius:"var(--radius)",border:"0.5px solid var(--border)",fontSize:10,flexWrap:"wrap"}}>
-                        <span style={{fontWeight:500,width:150,flexShrink:0}}>{r.name}</span>
-                        <span style={{color:"var(--text-primary)",flex:1,minWidth:120}}>{r.reason}</span>
+                      <div key={`${r.name}-${i}`} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:"var(--surface-1)",borderRadius:"var(--radius)",border:"0.5px solid var(--border)",fontSize:13,flexWrap:"wrap"}}>
+                        <span style={{fontSize:16,fontWeight:600,width:150,flexShrink:0}}>{r.name}</span>
+                        <span style={{fontSize:14,color:"var(--text-primary)",flex:1,minWidth:120}}>{r.reason}</span>
                         {(r.tags||[]).map(tag=>(
-                          <span key={tag} style={{fontSize:8,padding:"1px 6px",borderRadius:3,background:tagColor(tag),color:"#fff"}}>{tag}</span>
+                          <span key={tag} style={{fontSize:13,padding:"3px 9px",borderRadius:3,background:tagColor(tag),color:"#fff"}}>{tag}</span>
                         ))}
                       </div>
                     ))}
