@@ -1809,7 +1809,7 @@ export default function App() {
 
         {/* LEFT SIDEBAR: Scarcity + Tier counts */}
         <div ref={sidebarRef} style={{width:120,background:"var(--bg-sidebar)",borderRight:`1px solid var(--border)`,padding:"8px 8px 8px 0",overflow:"auto",flexShrink:0}}>
-          <div style={{fontSize:13,fontWeight:500,color:"var(--text-muted)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:8}}>Tier scarcity</div>
+          <div style={{fontSize:13,fontWeight:500,color:"var(--text-muted)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:8,paddingLeft:6}}>Tier scarcity</div>
 
           {/* Run alert */}
           {runAlert&&(
@@ -1830,7 +1830,7 @@ export default function App() {
           {/* Scarcity table */}
           {["QB","RB","WR","TE"].map(pos=>(
             <div key={pos} style={{marginBottom:10}}>
-              <div style={{fontSize:10,fontWeight:500,color:"var(--text-secondary)",padding:"2px 0",marginBottom:2}}>{pos}</div>
+              <div style={{fontSize:10,fontWeight:500,color:"var(--text-secondary)",padding:"2px 0 2px 6px",marginBottom:2}}>{pos}</div>
               {[1,2,3,4].map(tier=>{
                 const count=scarcity[pos]?.[tier];
                 if(count===undefined) return null;
